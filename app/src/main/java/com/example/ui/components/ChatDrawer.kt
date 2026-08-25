@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -64,11 +65,13 @@ import java.util.Locale
 fun ChatDrawerContent(
     sessions: List<ChatSessionEntity>,
     currentSessionId: String?,
+    isApiKeyConfigured: Boolean,
     onSelectSession: (String) -> Unit,
     onNewChat: () -> Unit,
     onDeleteSession: (String) -> Unit,
     onClearAll: () -> Unit,
     onOpenCascadeStatus: () -> Unit,
+    onOpenApiKeySettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
@@ -141,7 +144,49 @@ fun ChatDrawerContent(
             Text("Nueva Conversación", color = Color.White, fontWeight = FontWeight.SemiBold)
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // API Key Settings Quick Action
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenApiKeySettings() }
+                .border(
+                    1.dp,
+                    if (isApiKeyConfigured) Color(0xFF10B981).copy(alpha = 0.5f) else Color(0xFFF59E0B).copy(alpha = 0.6f),
+                    RoundedCornerShape(10.dp)
+                ),
+            shape = RoundedCornerShape(10.dp),
+            color = if (isApiKeyConfigured) Color(0xFF062419) else Color(0xFF241604)
+        ) {
+            Row(
+                modifier = Modifier.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Key,
+                    contentDescription = null,
+                    tint = if (isApiKeyConfigured) Color(0xFF10B981) else Color(0xFFF59E0B),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Gemini API Key",
+                        color = if (isApiKeyConfigured) Color(0xFF10B981) else Color(0xFFF59E0B),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (isApiKeyConfigured) "Configurada y Activa" else "No configurada (Toca para ingresar)",
+                        color = TextSecondaryDark,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Cascade Architecture Quick Action
         Surface(
@@ -171,7 +216,7 @@ fun ChatDrawerContent(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "9 modelos • Renovación 24h",
+                        text = "Gemini 3.7 + Respaldos 2.5/2.0",
                         color = TextSecondaryDark,
                         fontSize = 10.sp
                     )

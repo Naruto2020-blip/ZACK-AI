@@ -87,6 +87,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.components.ApiKeyDialog
 import com.example.ui.components.CascadeStatusSheet
 import com.example.ui.components.ChatDrawerContent
 import com.example.ui.components.ChatMessageBubble
@@ -121,6 +122,7 @@ fun MainChatScreen(
 
     var inputText by remember { mutableStateOf("") }
     var showCascadeSheet by remember { mutableStateOf(false) }
+    var showApiKeyDialog by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
 
     // TTS Setup
@@ -171,6 +173,7 @@ fun MainChatScreen(
             ChatDrawerContent(
                 sessions = sessions,
                 currentSessionId = uiState.currentSessionId,
+                isApiKeyConfigured = uiState.isApiKeyConfigured,
                 onSelectSession = { sessionId ->
                     viewModel.selectSession(sessionId)
                     coroutineScope.launch { drawerState.close() }
@@ -189,6 +192,10 @@ fun MainChatScreen(
                 onOpenCascadeStatus = {
                     coroutineScope.launch { drawerState.close() }
                     showCascadeSheet = true
+                },
+                onOpenApiKeySettings = {
+                    coroutineScope.launch { drawerState.close() }
+                    showApiKeyDialog = true
                 }
             )
         }
@@ -219,6 +226,42 @@ fun MainChatScreen(
                     onNewChatClick = { viewModel.createNewSession() },
                     onCascadeSheetClick = { showCascadeSheet = true }
                 )
+
+                // API Key Missing Warning Banner
+                if (!uiState.isApiKeyConfigured) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .clickable { showApiKeyDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF281C06),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.6f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🔑", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "API Key de Gemini no configurada",
+                                    color = Color(0xFFFBBF24),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Toca aquí para ingresar tu clave gratuita de Google AI Studio.",
+                                    color = Color(0xFFFDE68A),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
 
                 // Active Cascade Switching Banner (when quota hit or network fallback occurs)
                 AnimatedVisibility(
@@ -360,6 +403,21 @@ fun MainChatScreen(
             },
             onResetQuotas = {
                 viewModel.resetDailyQuotasManual()
+            },
+            onOpenApiKeySettings = {
+                showCascadeSheet = false
+                showApiKeyDialog = true
+            }
+        )
+    }
+
+    // API Key Dialog Modal
+    if (showApiKeyDialog) {
+        ApiKeyDialog(
+            currentApiKey = uiState.currentApiKey,
+            onDismiss = { showApiKeyDialog = false },
+            onSaveApiKey = { newKey ->
+                viewModel.saveApiKey(newKey)
             }
         )
     }

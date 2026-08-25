@@ -39,7 +39,9 @@ data class ChatUiState(
     val systemPersona: String = "Asistente Inteligente",
     val temperature: Float = 0.7f,
     val isRunningDiagnostics: Boolean = false,
-    val snackbarMessage: String? = null
+    val snackbarMessage: String? = null,
+    val isApiKeyConfigured: Boolean = false,
+    val currentApiKey: String = ""
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -48,7 +50,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = ChatRepository(database.chatDao())
     private val cascadeEngine = CascadeEngine(GeminiClient.service, repository)
 
-    private val _uiState = MutableStateFlow(ChatUiState())
+    private val _uiState = MutableStateFlow(
+        ChatUiState(
+            isApiKeyConfigured = GeminiClient.hasValidApiKey(application),
+            currentApiKey = GeminiClient.getStoredApiKey(application)
+        )
+    )
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     val sessions: StateFlow<List<ChatSessionEntity>> = repository.allSessions
@@ -285,6 +292,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             repository.resetAllDailyQuotas()
             _uiState.value = _uiState.value.copy(snackbarMessage = "Límites diarios restablecidos con éxito.")
         }
+    }
+
+    fun saveApiKey(newKey: String) {
+        val trimmed = newKey.trim()
+        GeminiClient.saveCustomApiKey(getApplication(), trimmed)
+        val isValid = GeminiClient.hasValidApiKey(getApplication())
+        _uiState.value = _uiState.value.copy(
+            isApiKeyConfigured = isValid,
+            currentApiKey = trimmed,
+            snackbarMessage = if (isValid) "API Key de Gemini guardada correctamente" else "API Key eliminada o vacía"
+        )
     }
 
     fun clearSnackbar() {

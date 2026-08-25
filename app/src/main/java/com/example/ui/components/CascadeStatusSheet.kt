@@ -97,7 +97,8 @@ fun CascadeStatusSheet(
     onSetPersona: (String) -> Unit,
     onSetTemperature: (Float) -> Unit,
     onRunDiagnostics: () -> Unit,
-    onResetQuotas: () -> Unit
+    onResetQuotas: () -> Unit,
+    onOpenApiKeySettings: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -146,7 +147,7 @@ fun CascadeStatusSheet(
                             color = TextPrimaryDark
                         )
                         Text(
-                            text = "9 Modelos Gratuitos con Renovación Diaria",
+                            text = "Gemini 3.7 + 5 Modelos de Respaldo",
                             style = MaterialTheme.typography.bodySmall,
                             color = CyanAccent,
                             fontSize = 12.sp
@@ -253,7 +254,7 @@ fun CascadeStatusSheet(
                     onClick = { selectedTab = 1 },
                     text = {
                         Text(
-                            text = "Ajustes & Parámetros",
+                            text = "Ajustes & API Key",
                             fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
                         )
                     }
@@ -276,7 +277,8 @@ fun CascadeStatusSheet(
                     uiState = uiState,
                     onSetPersona = onSetPersona,
                     onSetTemperature = onSetTemperature,
-                    onResetQuotas = onResetQuotas
+                    onResetQuotas = onResetQuotas,
+                    onOpenApiKeySettings = onOpenApiKeySettings
                 )
             }
         }
@@ -593,7 +595,8 @@ fun CascadeSettingsPanel(
     uiState: ChatUiState,
     onSetPersona: (String) -> Unit,
     onSetTemperature: (Float) -> Unit,
-    onResetQuotas: () -> Unit
+    onResetQuotas: () -> Unit,
+    onOpenApiKeySettings: () -> Unit
 ) {
     val personas = listOf(
         "Asistente Inteligente",
@@ -607,6 +610,71 @@ fun CascadeSettingsPanel(
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
     ) {
+        // API Key Section Card
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = if (uiState.isApiKeyConfigured) Color(0xFF062419) else Color(0xFF281C06),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (uiState.isApiKeyConfigured) Color(0xFF10B981).copy(alpha = 0.5f) else Color(0xFFF59E0B).copy(alpha = 0.6f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Gemini API Key",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (uiState.isApiKeyConfigured) Color(0xFF10B981) else Color(0xFFF59E0B)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (uiState.isApiKeyConfigured) "• Activa" else "• No configurada",
+                            fontSize = 11.sp,
+                            color = if (uiState.isApiKeyConfigured) Color(0xFF10B981) else Color(0xFFF59E0B)
+                        )
+                    }
+                    Text(
+                        text = if (uiState.isApiKeyConfigured)
+                            "Clave guardada de forma segura en almacenamiento local."
+                        else
+                            "Ingresa tu clave gratuita de Google AI Studio para usar todos los modelos.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondaryDark,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Button(
+                    onClick = onOpenApiKeySettings,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (uiState.isApiKeyConfigured) DeepIndigo else Color(0xFFD97706)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = if (uiState.isApiKeyConfigured) "Cambiar" else "Configurar",
+                        fontSize = 12.sp,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
         // Persona Selection
         Text(
             text = "Rol / Persona del Sistema",

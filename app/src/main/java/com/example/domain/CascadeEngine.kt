@@ -31,6 +31,18 @@ class CascadeEngine(
         onCascadeHop: ((CascadeHop) -> Unit)? = null
     ): CascadeExecutionResult = withContext(Dispatchers.IO) {
         val apiKey = GeminiClient.getApiKey()
+        if (apiKey.isBlank() || apiKey.equals("YOUR_API_KEY", ignoreCase = true)) {
+            Log.w(tag, "No Gemini API Key provided")
+            return@withContext CascadeExecutionResult(
+                content = "No se ha detectado una clave de API de Gemini válida.\n\nPor favor, abre el menú lateral (icono de 3 barras) o toca la tarjeta de aviso para ingresar tu API Key gratuita de Google AI Studio.",
+                usedModel = primaryModel,
+                requestedPrimaryModel = primaryModel,
+                wasCascaded = false,
+                hops = emptyList(),
+                latencyMs = 0L,
+                isError = true
+            )
+        }
         val hops = mutableListOf<CascadeHop>()
         val startTime = System.currentTimeMillis()
 
@@ -148,12 +160,21 @@ class CascadeEngine(
                             }
                         }
 
-                        failureReason = when (httpCode) {
-                            429 -> "Cuota diaria agotada (HTTP 429 - Resource Exhausted)"
-                            503 -> "Saturación temporal de red (HTTP 503 - Service Unavailable)"
-                            500, 502, 504 -> "Error de servidor en nodo de inferencia (HTTP $httpCode)"
-                            404 -> "Modelo no encontrado en esta región (HTTP 404)"
-                            400 -> "Parámetro no soportado por este modelo (HTTP 400)"
+                        failureReason = when {
+                            httpCode == 429 -> "Cuota diaria agotada (HTTP 429 - Resource Exhausted)"
+                            httpCode == 503 -> "Saturación temporal de red (HTTP 503 - Service Unavailable)"
+                            httpCode in listOf(500, 502, 504) -> "Error de servidor en nodo de inferencia (HTTP $httpCode)"
+                            httpCode == 404 -> "Modelo no encontrado en esta región (HTTP 404)"
+                            httpCode == 400 -> {
+                                when {
+                                    errorBody.contains("API key not valid", ignoreCase = true) || errorBody.contains("API_KEY_INVALID", ignoreCase = true) ->
+                                        "Clave de API inválida o expirada (HTTP 400)"
+                                    errorBody.contains("User location", ignoreCase = true) ->
+                                        "Región geográfica no soportada (HTTP 400)"
+                                    else -> "Parámetro o payload no soportado (HTTP 400)"
+                                }
+                            }
+                            httpCode == 403 -> "Acceso denegado o permisos insuficientes (HTTP 403)"
                             else -> "Error de conexión (HTTP $httpCode)"
                         }
                         // If it's a 429 quota exhaustion or 503, immediately switch to backup model

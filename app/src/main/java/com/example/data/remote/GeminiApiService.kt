@@ -37,6 +37,10 @@ interface GeminiApiService {
 
 object GeminiClient {
     private const val BASE_URL = "https://generativelanguage.googleapis.com/"
+    private const val PREFS_NAME = "gemini_prefs"
+    private const val KEY_CUSTOM_API_KEY = "custom_gemini_api_key"
+    
+    private var customApiKeyCache: String? = null
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -66,7 +70,37 @@ object GeminiClient {
             .create(GeminiApiService::class.java)
     }
 
+    fun saveCustomApiKey(context: android.content.Context, key: String) {
+        val trimmed = key.trim()
+        customApiKeyCache = trimmed
+        val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_CUSTOM_API_KEY, trimmed).apply()
+    }
+
+    fun getStoredApiKey(context: android.content.Context): String {
+        if (!customApiKeyCache.isNullOrBlank()) {
+            return customApiKeyCache!!
+        }
+        val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        val saved = prefs.getString(KEY_CUSTOM_API_KEY, null)?.trim()
+        if (!saved.isNullOrBlank()) {
+            customApiKeyCache = saved
+            return saved
+        }
+        val buildKey = BuildConfig.GEMINI_API_KEY.trim()
+        customApiKeyCache = buildKey
+        return buildKey
+    }
+
     fun getApiKey(): String {
-        return BuildConfig.GEMINI_API_KEY
+        if (!customApiKeyCache.isNullOrBlank()) {
+            return customApiKeyCache!!
+        }
+        return BuildConfig.GEMINI_API_KEY.trim()
+    }
+
+    fun hasValidApiKey(context: android.content.Context? = null): Boolean {
+        val key = if (context != null) getStoredApiKey(context) else getApiKey()
+        return key.isNotBlank() && !key.equals("YOUR_API_KEY", ignoreCase = true)
     }
 }
