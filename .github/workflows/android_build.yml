@@ -29,8 +29,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Prepare Environment File
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          if [ ! -f .env ] && [ -f .env.example ]; then
+          if [ -n "$GEMINI_API_KEY" ]; then
+            echo "GEMINI_API_KEY=$GEMINI_API_KEY" > .env
+          elif [ ! -f .env ] && [ -f .env.example ]; then
             cp .env.example .env
           fi
 
@@ -41,6 +45,8 @@ jobs:
       #   run: gradle :app:testDebugUnitTest --no-daemon
 
       - name: Build Debug APK
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace
 
       - name: Upload Debug APK Artifact
