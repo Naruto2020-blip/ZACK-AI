@@ -243,8 +243,16 @@ class CascadeEngine(
 
         // If all models in the cascade failed, return comprehensive error result
         val totalLatency = System.currentTimeMillis() - startTime
+        val isApiKeyIssue = lastErrorText?.contains("Clave de API", ignoreCase = true) == true
+
+        val finalMessage = if (isApiKeyIssue) {
+            "⚠️ Error de Clave de API de Gemini (HTTP 400)\n\nLa clave de API actual no es válida o no está autorizada por Google AI Studio.\n\n👉 Por favor, abre el menú lateral (icono ☰) o toca 'Configurar API Key' para ingresar tu clave gratuita de Google AI Studio (https://aistudio.google.com/app/apikey)."
+        } else {
+            "⚠️ Todos los modelos de la cascada experimentaron un error o cuota agotada.\n\nÚltimo motivo: ${lastErrorText ?: "Error de comunicación con la API de Gemini"}\n\nPor favor, verifica tu conexión o intenta nuevamente en unos instantes."
+        }
+
         return@withContext CascadeExecutionResult(
-            content = "⚠️ Todos los modelos de la cascada experimentaron un error o cuota agotada.\n\nÚltimo motivo: ${lastErrorText ?: "Error de comunicación con la API de Gemini"}\n\nPor favor, verifica tu conexión o intenta nuevamente en unos instantes.",
+            content = finalMessage,
             usedModel = previousModel,
             requestedPrimaryModel = primaryModel,
             wasCascaded = hops.isNotEmpty(),
