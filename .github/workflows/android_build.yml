@@ -21,42 +21,30 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
 
-      - name: Generate Gradle Wrapper JAR
+      - name: Prepare Environment File
         run: |
-          gradle wrapper --gradle-version 8.11.1
-          chmod +x gradlew
+          if [ ! -f .env ] && [ -f .env.example ]; then
+            cp .env.example .env
+          fi
 
       # ----------------------------------------------------
       # Seccion de pruebas unitarias (deshabilitada/comentada)
       # ----------------------------------------------------
       # - name: Run Unit Tests
-      #   run: ./gradlew testDebugUnitTest
+      #   run: gradle :app:testDebugUnitTest --no-daemon
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 14
-
-      - name: Build Release APK
-        run: ./gradlew assembleRelease --stacktrace
-        continue-on-error: true
-
-      - name: Upload Release APK Artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: app-release-apk
-          path: app/build/outputs/apk/release/
+          path: app/build/outputs/apk/debug/
           retention-days: 14
