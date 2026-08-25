@@ -24,7 +24,7 @@ class CascadeEngine(
     suspend fun executeCascade(
         history: List<ChatMessageEntity>,
         newPrompt: String,
-        primaryModel: GeminiModelSpec = GeminiModelSpec.GEMINI_2_5_FLASH,
+        primaryModel: GeminiModelSpec = GeminiModelSpec.GEMINI_3_7_FLASH,
         autoCascadeEnabled: Boolean = true,
         systemInstruction: String? = null,
         temperature: Float = 0.7f,
@@ -57,13 +57,17 @@ class CascadeEngine(
             )
         )
 
-        val systemContent = if (!systemInstruction.isNullOrBlank()) {
+    val systemContent = if (!systemInstruction.isNullOrBlank()) {
             ContentDto(parts = listOf(PartDto(text = systemInstruction)))
+        } else null
+
+        val genConfig = if (temperature != 0.7f) {
+            GenerationConfigDto(temperature = temperature)
         } else null
 
         val request = GenerateContentRequestDto(
             contents = contents,
-            generationConfig = GenerationConfigDto(temperature = temperature),
+            generationConfig = genConfig,
             systemInstruction = systemContent
         )
 
@@ -117,6 +121,33 @@ class CascadeEngine(
                     } else {
                         val errorBody = response.errorBody()?.string() ?: ""
                         Log.w(tag, "Model $endpoint returned error $httpCode: $errorBody")
+                        
+                        // If it's a 400, retry once with simplified request (no system instruction or config)
+                        if (httpCode == 400 && (request.systemInstruction != null || request.generationConfig != null)) {
+                            Log.d(tag, "Retrying $endpoint with simple contents payload...")
+                            val simpleRequest = GenerateContentRequestDto(
+                                contents = listOf(
+                                    ContentDto(
+                                        role = "user",
+                                        parts = listOf(PartDto(text = newPrompt))
+                                    )
+                                )
+                            )
+                            val retryResponse = apiService.generateContent(
+                                model = endpoint,
+                                apiKey = apiKey,
+                                request = simpleRequest
+                            )
+                            if (retryResponse.isSuccessful) {
+                                val retryText = retryResponse.body()?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                                if (!retryText.isNullOrBlank()) {
+                                    responseText = retryText
+                                    requestSuccess = true
+                                    break
+                                }
+                            }
+                        }
+
                         failureReason = when (httpCode) {
                             429 -> "Cuota diaria agotada (HTTP 429 - Resource Exhausted)"
                             503 -> "Saturación temporal de red (HTTP 503 - Service Unavailable)"
