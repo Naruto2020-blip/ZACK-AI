@@ -31,7 +31,7 @@ data class ChatUiState(
     val currentSessionTitle: String = "Nueva Conversación",
     val messages: List<ChatMessageEntity> = emptyList(),
     val isGenerating: Boolean = false,
-    val selectedModel: GeminiModelSpec = GeminiModelSpec.GEMINI_3_7_FLASH,
+    val selectedModel: GeminiModelSpec = GeminiModelSpec.GEMINI_2_5_FLASH,
     val isAutoCascadeEnabled: Boolean = true,
     val activeCascadeHop: CascadeHop? = null,
     val modelRuntimeStatuses: List<ModelRuntimeStatus> = emptyList(),

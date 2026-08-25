@@ -24,7 +24,7 @@ class CascadeEngine(
     suspend fun executeCascade(
         history: List<ChatMessageEntity>,
         newPrompt: String,
-        primaryModel: GeminiModelSpec = GeminiModelSpec.GEMINI_3_7_FLASH,
+        primaryModel: GeminiModelSpec = GeminiModelSpec.GEMINI_2_5_FLASH,
         autoCascadeEnabled: Boolean = true,
         systemInstruction: String? = null,
         temperature: Float = 0.7f,
