@@ -85,7 +85,7 @@ fun ChatMessageBubble(
     var isCopied by remember { mutableStateOf(false) }
     var showCascadeDetails by remember { mutableStateOf(false) }
 
-    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val timeFormat = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
     val formattedTime = remember(message.timestamp) { timeFormat.format(Date(message.timestamp)) }
 
     Column(
