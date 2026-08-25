@@ -31,7 +31,7 @@ class CascadeEngine(
         onCascadeHop: ((CascadeHop) -> Unit)? = null
     ): CascadeExecutionResult = withContext(Dispatchers.IO) {
         val apiKey = GeminiClient.getApiKey()
-        if (apiKey.isBlank() || apiKey.equals("YOUR_API_KEY", ignoreCase = true)) {
+        if (!GeminiClient.hasValidApiKey()) {
             Log.w(tag, "No Gemini API Key provided")
             return@withContext CascadeExecutionResult(
                 content = "No se ha detectado una clave de API de Gemini válida.\n\nPor favor, abre el menú lateral (icono de 3 barras) o toca la tarjeta de aviso para ingresar tu API Key gratuita de Google AI Studio.",

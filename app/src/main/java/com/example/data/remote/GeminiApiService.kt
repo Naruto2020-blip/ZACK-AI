@@ -101,6 +101,8 @@ object GeminiClient {
 
     fun hasValidApiKey(context: android.content.Context? = null): Boolean {
         val key = if (context != null) getStoredApiKey(context) else getApiKey()
-        return key.isNotBlank() && !key.equals("YOUR_API_KEY", ignoreCase = true)
+        if (key.isBlank()) return false
+        val placeholders = listOf("YOUR_API_KEY", "MY_GEMINI_API_KEY", "GEMINI_API_KEY", "PLACEHOLDER", "DEFAULT_VALUE")
+        return placeholders.none { key.equals(it, ignoreCase = true) }
     }
 }
