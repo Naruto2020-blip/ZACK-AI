@@ -1,0 +1,6 @@
+{
+  "name": "Gemini Cascade AI",
+  "description": "Asistente de IA con Gemini 3.7 Flash y cascada inteligente de 8 modelos de respaldo con conmutación automática ante límites de cuota diaria.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
