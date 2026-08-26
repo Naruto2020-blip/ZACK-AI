@@ -27,7 +27,7 @@ enum class GeminiModelSpec(
         description = "Nodo universal ultrarrápido y multimodal con máxima disponibilidad global.",
         speedRating = 5,
         reasoningRating = 5,
-        fallbackAliases = listOf("gemini-flash-latest", "gemini-1.5-flash-latest")
+        fallbackAliases = listOf("gemini-1.5-flash-latest", "gemini-2.0-flash")
     ),
     GEMINI_3_5_FLASH(
         id = "gemini-2.0-flash",

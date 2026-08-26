@@ -185,7 +185,8 @@ class CascadeEngine(
                     Log.d(tag, "Attempting request with model endpoint: $endpoint")
                     var response = apiService.generateContent(
                         model = endpoint,
-                        apiKey = apiKey,
+                        apiKeyHeader = apiKey,
+                        apiKeyQuery = apiKey,
                         request = request
                     )
 
@@ -197,7 +198,8 @@ class CascadeEngine(
                         kotlinx.coroutines.delay(400L)
                         response = apiService.generateContent(
                             model = endpoint,
-                            apiKey = apiKey,
+                            apiKeyHeader = apiKey,
+                            apiKeyQuery = apiKey,
                             request = request
                         )
                         httpCode = response.code()
@@ -229,7 +231,8 @@ class CascadeEngine(
                             )
                             val retryResponse = apiService.generateContent(
                                 model = endpoint,
-                                apiKey = apiKey,
+                                apiKeyHeader = apiKey,
+                                apiKeyQuery = apiKey,
                                 request = simpleRequest
                             )
                             if (retryResponse.isSuccessful) {
@@ -385,7 +388,8 @@ class CascadeEngine(
             try {
                 val response = apiService.generateContent(
                     model = ep,
-                    apiKey = apiKey,
+                    apiKeyHeader = apiKey,
+                    apiKeyQuery = apiKey,
                     request = request
                 )
                 val latency = System.currentTimeMillis() - startTime
