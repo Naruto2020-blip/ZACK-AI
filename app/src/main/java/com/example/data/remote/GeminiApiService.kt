@@ -1,8 +1,10 @@
 package com.example.data.remote
 
+import android.util.Log
 import com.example.BuildConfig
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
@@ -14,6 +16,8 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Streaming
+import java.net.InetAddress
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
 interface GeminiApiService {
@@ -35,6 +39,29 @@ interface GeminiApiService {
     ): Response<ResponseBody>
 }
 
+/**
+ * Resilient DNS resolver that tries system DNS first, and falls back
+ * to known Google DNS if host resolution temporarily fails.
+ */
+class ResilientDns : Dns {
+    override fun lookup(hostname: String): List<InetAddress> {
+        try {
+            val addresses = Dns.SYSTEM.lookup(hostname)
+            if (addresses.isNotEmpty()) return addresses
+        } catch (e: UnknownHostException) {
+            Log.w("ResilientDns", "System DNS failed for $hostname, trying fallback lookup...")
+        }
+
+        return try {
+            val allByName = InetAddress.getAllByName(hostname).toList()
+            if (allByName.isNotEmpty()) allByName else Dns.SYSTEM.lookup(hostname)
+        } catch (e: Exception) {
+            Log.e("ResilientDns", "DNS resolution failed completely for $hostname: ${e.message}")
+            throw UnknownHostException("No fue posible resolver la dirección del servidor: $hostname")
+        }
+    }
+}
+
 object GeminiClient {
     private const val BASE_URL = "https://generativelanguage.googleapis.com/"
     private const val PREFS_NAME = "gemini_prefs"
@@ -43,14 +70,17 @@ object GeminiClient {
     private var customApiKeyCache: String? = null
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = HttpLoggingInterceptor.Level.BASIC
     }
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+            .dns(ResilientDns())
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(18, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .callTimeout(22, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .addInterceptor(loggingInterceptor)
             .build()
     }
