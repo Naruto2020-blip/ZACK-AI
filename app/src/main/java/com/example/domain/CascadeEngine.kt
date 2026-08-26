@@ -25,7 +25,7 @@ class CascadeEngine(
     suspend fun executeCascade(
         history: List<ChatMessageEntity>,
         newPrompt: String,
-        primaryModel: GeminiModelSpec = GeminiModelSpec.GEMINI_1_5_FLASH,
+        primaryModel: GeminiModelSpec = GeminiModelSpec.GEMINI_FLASH_LATEST,
         autoCascadeEnabled: Boolean = true,
         systemInstruction: String? = null,
         temperature: Float = 0.7f,
@@ -126,18 +126,31 @@ class CascadeEngine(
             var httpCode: Int? = null
 
             // Try the main model id and any fallback aliases if needed
-            val modelEndpoints = listOf(model.id) + model.fallbackAliases
+            val modelEndpoints = (listOf(model.id) + model.fallbackAliases).distinct()
 
             for (endpoint in modelEndpoints) {
                 try {
                     Log.d(tag, "Attempting request with model endpoint: $endpoint")
-                    val response = apiService.generateContent(
+                    var response = apiService.generateContent(
                         model = endpoint,
                         apiKey = apiKey,
                         request = request
                     )
 
                     httpCode = response.code()
+
+                    // Quick retry on 503 (temporary network spike/service unavailable)
+                    if (httpCode == 503) {
+                        Log.w(tag, "Model $endpoint returned 503 (Saturación), retrying once after 600ms...")
+                        kotlinx.coroutines.delay(600L)
+                        response = apiService.generateContent(
+                            model = endpoint,
+                            apiKey = apiKey,
+                            request = request
+                        )
+                        httpCode = response.code()
+                    }
+
                     if (response.isSuccessful) {
                         val body = response.body()
                         val text = body?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
@@ -195,8 +208,8 @@ class CascadeEngine(
                             httpCode == 403 -> "Acceso denegado o permisos insuficientes (HTTP 403)"
                             else -> "Error de conexión (HTTP $httpCode)"
                         }
-                        // If it's a 429 quota exhaustion or 503, immediately switch to backup model
-                        if (httpCode == 429 || httpCode == 503) {
+                        // If quota is exhausted (429), switch immediately to next model
+                        if (httpCode == 429) {
                             break
                         }
                     }
