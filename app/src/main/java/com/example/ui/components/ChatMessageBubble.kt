@@ -166,17 +166,11 @@ fun ChatMessageBubble(
                     modifier = Modifier
                         .size(34.dp)
                         .clip(CircleShape)
-                        .background(
-                            brush = if (message.wasCascaded) {
-                                Brush.linearGradient(listOf(AmberGold, Color(0xFFF97316)))
-                            } else {
-                                Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))
-                            }
-                        ),
+                        .background(Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (message.wasCascaded) Icons.Default.SwapHoriz else Icons.Default.AutoAwesome,
+                        imageVector = Icons.Default.AutoAwesome,
                         contentDescription = "IA",
                         tint = ObsidianBackground,
                         modifier = Modifier.size(18.dp)
@@ -194,28 +188,17 @@ fun ChatMessageBubble(
                         .fillMaxWidth()
                         .border(
                             width = 1.dp,
-                            color = if (message.isError) RoseRed.copy(alpha = 0.6f)
-                            else if (message.wasCascaded) AmberGold.copy(alpha = 0.5f)
-                            else ObsidianCardBorder,
+                            color = if (message.isError) RoseRed.copy(alpha = 0.6f) else ObsidianCardBorder,
                             shape = RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
                         )
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
-                        // Top timestamp & info header
+                        // Top timestamp header
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (message.latencyMs > 0) {
-                                Text(
-                                    text = "${message.latencyMs}ms",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = TextSecondaryDark,
-                                    fontSize = 11.sp
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                            }
                             Text(
                                 text = formattedTime,
                                 style = MaterialTheme.typography.labelSmall,
@@ -224,72 +207,7 @@ fun ChatMessageBubble(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(2.dp))
-
-                        // Cascade Reason Trail Banner (if cascaded)
-                        if (message.wasCascaded && !message.cascadeReason.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFF1E1710),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { showCascadeDetails = !showCascadeDetails }
-                                    .border(1.dp, AmberGold.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                    .padding(8.dp)
-                            ) {
-                                Column {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.SwapHoriz,
-                                                contentDescription = null,
-                                                tint = AmberGold,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = "Ruta de Cascada Activada",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = AmberGold,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 11.sp
-                                            )
-                                        }
-                                        Icon(
-                                            imageVector = if (showCascadeDetails) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                            contentDescription = "Ver Detalles",
-                                            tint = AmberGold,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-
-                                    AnimatedVisibility(visible = showCascadeDetails) {
-                                        Column(modifier = Modifier.padding(top = 6.dp)) {
-                                            Text(
-                                                text = "Conmutación sin interrupción:",
-                                                color = TextSecondaryDark,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = message.cascadeReason,
-                                                color = Color(0xFFFDE68A),
-                                                fontSize = 11.sp,
-                                                lineHeight = 15.sp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         // Message Text Body
                         if (message.isError) {

@@ -7,11 +7,6 @@ import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,7 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -42,16 +36,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.ElectricBolt
-import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -81,21 +70,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.ui.components.ApiKeyDialog
 import com.example.ui.components.AttachmentActionBar
-import com.example.ui.components.CascadeStatusSheet
 import com.example.ui.components.ChatDrawerContent
 import com.example.ui.components.ChatMessageBubble
 import com.example.ui.components.FilePickerMenu
-import com.example.ui.theme.AmberGold
+import com.example.ui.components.SettingsSheet
 import com.example.ui.theme.CyanAccent
-import com.example.ui.theme.DeepIndigo
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.ObsidianBackground
 import com.example.ui.theme.ObsidianCard
@@ -123,9 +106,7 @@ fun MainChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var inputText by remember { mutableStateOf("") }
-    var showCascadeSheet by remember { mutableStateOf(false) }
-    var showApiKeyDialog by remember { mutableStateOf(false) }
-    var showOptionsMenu by remember { mutableStateOf(false) }
+    var showSettingsSheet by remember { mutableStateOf(false) }
 
     // TTS Setup
     var tts: TextToSpeech? by remember { mutableStateOf(null) }
@@ -175,7 +156,6 @@ fun MainChatScreen(
             ChatDrawerContent(
                 sessions = sessions,
                 currentSessionId = uiState.currentSessionId,
-                isApiKeyConfigured = uiState.isApiKeyConfigured,
                 onSelectSession = { sessionId ->
                     viewModel.selectSession(sessionId)
                     coroutineScope.launch { drawerState.close() }
@@ -191,13 +171,9 @@ fun MainChatScreen(
                     viewModel.clearAllSessions()
                     coroutineScope.launch { drawerState.close() }
                 },
-                onOpenCascadeStatus = {
+                onOpenSettings = {
                     coroutineScope.launch { drawerState.close() }
-                    showCascadeSheet = true
-                },
-                onOpenApiKeySettings = {
-                    coroutineScope.launch { drawerState.close() }
-                    showApiKeyDialog = true
+                    showSettingsSheet = true
                 }
             )
         }
@@ -219,97 +195,11 @@ fun MainChatScreen(
             ) {
                 // Top Custom App Bar
                 ChatTopBar(
-                    title = uiState.currentSessionTitle,
-                    selectedModel = uiState.selectedModel.displayName,
-                    isAutoCascadeEnabled = uiState.isAutoCascadeEnabled,
-                    resetCountdown = uiState.timeUntilUtcReset,
+                    title = "ZACK AI",
                     onMenuClick = { coroutineScope.launch { drawerState.open() } },
-                    onModelChipClick = { showCascadeSheet = true },
-                    onNewChatClick = { viewModel.createNewSession() },
-                    onCascadeSheetClick = { showCascadeSheet = true }
+                    onSettingsClick = { showSettingsSheet = true },
+                    onNewChatClick = { viewModel.createNewSession() }
                 )
-
-                // API Key Missing Warning Banner
-                if (!uiState.isApiKeyConfigured) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .clickable { showApiKeyDialog = true },
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF281C06),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.6f))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("🔑", fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "API Key de Gemini no configurada",
-                                    color = Color(0xFFFBBF24),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Toca aquí para ingresar tu clave gratuita de Google AI Studio.",
-                                    color = Color(0xFFFDE68A),
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Active Cascade Switching Banner (when quota hit or network fallback occurs)
-                AnimatedVisibility(
-                    visible = uiState.activeCascadeHop != null,
-                    enter = fadeIn() + slideInVertically(),
-                    exit = fadeOut() + slideOutVertically()
-                ) {
-                    val hop = uiState.activeCascadeHop
-                    if (hop != null) {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 6.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF2B1908),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AmberGold.copy(alpha = 0.6f))
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = AmberGold
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        text = "Conmutación en Cascada Activada",
-                                        color = AmberGold,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "${hop.fromModel.displayName} ➔ ${hop.toModel.displayName} (${hop.reason})",
-                                        color = Color(0xFFFDE68A),
-                                        fontSize = 11.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
 
                 // Chat Messages List or Empty Starter State
                 Box(
@@ -344,10 +234,7 @@ fun MainChatScreen(
                             // Typing / Generating Indicator
                             if (uiState.isGenerating) {
                                 item {
-                                    GeneratingIndicator(
-                                        currentModel = uiState.selectedModel.displayName,
-                                        isCascading = uiState.activeCascadeHop != null
-                                    )
+                                    GeneratingIndicator()
                                 }
                             }
                         }
@@ -365,7 +252,7 @@ fun MainChatScreen(
                     }
                 )
 
-                // Bottom Chat Input Field Bar
+                // Bottom Chat Input Field Bar (Clean & Focused)
                 ChatInputBar(
                     inputText = inputText,
                     onTextChanged = { inputText = it },
@@ -392,51 +279,19 @@ fun MainChatScreen(
                     onTakePhoto = { uri ->
                         viewModel.attachFileUri(uri)
                     },
-                    isGenerating = uiState.isGenerating,
-                    selectedModel = uiState.selectedModel.displayName,
-                    onModelChipClick = { showCascadeSheet = true }
+                    isGenerating = uiState.isGenerating
                 )
             }
         }
     }
 
-    // Cascade Status Bottom Sheet Modal
-    if (showCascadeSheet) {
-        CascadeStatusSheet(
+    // Settings Bottom Sheet Modal
+    if (showSettingsSheet) {
+        SettingsSheet(
             uiState = uiState,
-            onDismiss = { showCascadeSheet = false },
-            onSelectModel = { model ->
-                viewModel.setSelectedModel(model)
-            },
-            onToggleAutoCascade = { enabled ->
-                viewModel.toggleAutoCascade(enabled)
-            },
+            onDismiss = { showSettingsSheet = false },
             onSetPersona = { persona ->
                 viewModel.setSystemPersona(persona)
-            },
-            onSetTemperature = { temp ->
-                viewModel.setTemperature(temp)
-            },
-            onRunDiagnostics = {
-                viewModel.runDiagnostics()
-            },
-            onResetQuotas = {
-                viewModel.resetDailyQuotasManual()
-            },
-            onOpenApiKeySettings = {
-                showCascadeSheet = false
-                showApiKeyDialog = true
-            }
-        )
-    }
-
-    // API Key Dialog Modal
-    if (showApiKeyDialog) {
-        ApiKeyDialog(
-            currentApiKey = uiState.currentApiKey,
-            onDismiss = { showApiKeyDialog = false },
-            onSaveApiKey = { newKey ->
-                viewModel.saveApiKey(newKey)
             }
         )
     }
@@ -445,13 +300,9 @@ fun MainChatScreen(
 @Composable
 fun ChatTopBar(
     title: String,
-    selectedModel: String,
-    isAutoCascadeEnabled: Boolean,
-    resetCountdown: String,
     onMenuClick: () -> Unit,
-    onModelChipClick: () -> Unit,
-    onNewChatClick: () -> Unit,
-    onCascadeSheetClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onNewChatClick: () -> Unit
 ) {
     Surface(
         color = ObsidianBackground,
@@ -478,7 +329,7 @@ fun ChatTopBar(
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "ZACK AI",
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimaryDark
@@ -487,12 +338,12 @@ fun ChatTopBar(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
-                    onClick = onCascadeSheetClick,
-                    modifier = Modifier.testTag("cascade_sheet_button")
+                    onClick = onSettingsClick,
+                    modifier = Modifier.testTag("settings_top_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Layers,
-                        contentDescription = "Ver Cascada",
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Ajustes",
                         tint = CyanAccent
                     )
                 }
@@ -585,10 +436,7 @@ fun EmptyChatState(
 }
 
 @Composable
-fun GeneratingIndicator(
-    currentModel: String,
-    isCascading: Boolean
-) {
+fun GeneratingIndicator() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -599,10 +447,7 @@ fun GeneratingIndicator(
             modifier = Modifier
                 .size(30.dp)
                 .clip(CircleShape)
-                .background(
-                    if (isCascading) Brush.linearGradient(listOf(AmberGold, Color(0xFFEA580C)))
-                    else Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))
-                ),
+                .background(Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(
@@ -624,9 +469,9 @@ fun GeneratingIndicator(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isCascading) "Conmutando modelo de respaldo..." else "Generando respuesta con $currentModel...",
+                    text = "Generando respuesta...",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isCascading) AmberGold else CyanAccent,
+                    color = CyanAccent,
                     fontSize = 12.sp
                 )
             }
@@ -642,9 +487,7 @@ fun ChatInputBar(
     onVoiceRecord: () -> Unit,
     onFileSelected: (android.net.Uri) -> Unit,
     onTakePhoto: (android.net.Uri) -> Unit,
-    isGenerating: Boolean,
-    selectedModel: String,
-    onModelChipClick: () -> Unit
+    isGenerating: Boolean
 ) {
     Surface(
         color = ObsidianBackground,
