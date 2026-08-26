@@ -19,18 +19,18 @@ enum class GeminiModelSpec(
     val fallbackAliases: List<String> = emptyList()
 ) {
     GEMINI_FLASH_LATEST(
-        id = "gemini-1.5-flash",
+        id = "gemini-flash-latest",
         displayName = "Gemini Flash (Universal)",
         roleBadge = "Principal (Universal / Latest)",
         isPrimary = true,
         orderIndex = 1,
-        description = "Nodo universal ultrarrápido y multimodal con máxima disponibilidad global.",
+        description = "Redirección automática de Google al modelo Flash disponible con máxima compatibilidad global.",
         speedRating = 5,
         reasoningRating = 5,
-        fallbackAliases = listOf("gemini-1.5-flash-latest", "gemini-2.0-flash")
+        fallbackAliases = listOf("gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-2.0-flash")
     ),
     GEMINI_3_5_FLASH(
-        id = "gemini-2.0-flash",
+        id = "gemini-1.5-flash-latest",
         displayName = "Gemini 3.5 Flash",
         roleBadge = "Respaldo #1 (Alta Velocidad)",
         isPrimary = false,
@@ -38,10 +38,10 @@ enum class GeminiModelSpec(
         description = "Excelente velocidad de respuesta y multimodalidad para uso continuo.",
         speedRating = 5,
         reasoningRating = 4,
-        fallbackAliases = listOf("gemini-1.5-flash")
+        fallbackAliases = listOf("gemini-flash-latest", "gemini-1.5-flash")
     ),
     GEMINI_3_7_FLASH(
-        id = "gemini-3.7-flash",
+        id = "gemini-1.5-pro-latest",
         displayName = "Gemini 3.7 Flash",
         roleBadge = "Respaldo #2 (Flagship / Razonamiento)",
         isPrimary = false,
@@ -49,10 +49,10 @@ enum class GeminiModelSpec(
         description = "Máximo razonamiento híbrido y análisis de última generación.",
         speedRating = 5,
         reasoningRating = 5,
-        fallbackAliases = listOf("gemini-1.5-pro", "gemini-1.5-flash")
+        fallbackAliases = listOf("gemini-pro-latest", "gemini-flash-latest")
     ),
     GEMINI_3_1_PRO(
-        id = "gemini-1.5-pro",
+        id = "gemini-pro-latest",
         displayName = "Gemini 3.1 Pro",
         roleBadge = "Respaldo #3 (Pro / Razonamiento Complejo)",
         isPrimary = false,
@@ -60,10 +60,10 @@ enum class GeminiModelSpec(
         description = "Razonamiento lógico profundo, matemáticas y programación avanzada.",
         speedRating = 4,
         reasoningRating = 5,
-        fallbackAliases = listOf("gemini-1.5-flash")
+        fallbackAliases = listOf("gemini-1.5-pro-latest", "gemini-flash-latest")
     ),
     GEMINI_3_1_FLASH_LITE(
-        id = "gemini-2.0-flash-lite-preview-02-05",
+        id = "gemini-1.5-flash-8b-latest",
         displayName = "Gemini 3.1 Flash-Lite",
         roleBadge = "Respaldo #4 (Baja Latencia)",
         isPrimary = false,
@@ -71,7 +71,7 @@ enum class GeminiModelSpec(
         description = "Modelo ligero optimizado para respuestas instantáneas de mínima latencia.",
         speedRating = 5,
         reasoningRating = 4,
-        fallbackAliases = listOf("gemini-1.5-flash-8b", "gemini-1.5-flash")
+        fallbackAliases = listOf("gemini-flash-latest", "gemini-1.5-flash-latest")
     );
 
     companion object {

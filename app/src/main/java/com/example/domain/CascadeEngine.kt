@@ -177,8 +177,8 @@ class CascadeEngine(
             var failureReason: String? = null
             var httpCode: Int? = null
 
-            // Try the main model id first; keep fallback list minimal for speed
-            val modelEndpoints = (listOf(model.id) + model.fallbackAliases).distinct().take(2)
+            // Try the main model id and any fallback aliases
+            val modelEndpoints = (listOf(model.id) + model.fallbackAliases).distinct()
 
             for (endpoint in modelEndpoints) {
                 try {
