@@ -34,6 +34,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,9 +72,14 @@ private data class PersonaOption(
 fun SettingsSheet(
     uiState: ChatUiState,
     onDismiss: () -> Unit,
-    onSetPersona: (String) -> Unit
+    onSetPersona: (String) -> Unit,
+    onSaveApiKey: ((String) -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var apiKeyInput by androidx.compose.runtime.remember(uiState.currentApiKey) {
+        androidx.compose.runtime.mutableStateOf(uiState.currentApiKey)
+    }
+    var showApiKeyInput by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     val personas = listOf(
         PersonaOption(
@@ -245,6 +254,104 @@ fun SettingsSheet(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
                             )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Section 2: 🔑 Clave de API de Gemini
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(14.dp),
+                color = ObsidianCard
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF1E1E38)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = ElectricCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "API Key de Google Gemini",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimaryDark
+                                )
+                                Text(
+                                    text = if (uiState.isApiKeyConfigured) "● Clave activa y enlazada" else "○ Clave no configurada",
+                                    color = if (uiState.isApiKeyConfigured) EmeraldGreen else Color(0xFFEF4444),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        androidx.compose.material3.TextButton(
+                            onClick = { showApiKeyInput = !showApiKeyInput }
+                        ) {
+                            Text(
+                                text = if (showApiKeyInput) "Ocultar" else "Editar / Probar Clave",
+                                color = CyanAccent,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    if (showApiKeyInput) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        androidx.compose.material3.OutlinedTextField(
+                            value = apiKeyInput,
+                            onValueChange = { apiKeyInput = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("custom_api_key_field"),
+                            placeholder = { Text("Pega tu API Key de AI Studio...", color = TextSecondaryDark, fontSize = 13.sp) },
+                            singleLine = true,
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = ElectricCyan,
+                                unfocusedBorderColor = ObsidianCardBorder,
+                                focusedTextColor = TextPrimaryDark,
+                                unfocusedTextColor = TextPrimaryDark
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    onSaveApiKey?.invoke(apiKeyInput)
+                                    showApiKeyInput = false
+                                },
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = ElectricCyan,
+                                    contentColor = ObsidianBackground
+                                )
+                            ) {
+                                Text("Guardar Clave", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

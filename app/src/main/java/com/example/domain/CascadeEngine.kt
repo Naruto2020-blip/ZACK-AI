@@ -26,7 +26,7 @@ class CascadeEngine(
     private val repository: ChatRepository
 ) {
     private val tag = "CascadeEngine"
-    private val maxGlobalTimeoutMs = 25_000L
+    private val maxGlobalTimeoutMs = 50_000L
 
     suspend fun executeCascade(
         history: List<ChatMessageEntity>,
@@ -62,7 +62,7 @@ class CascadeEngine(
             val totalLatency = System.currentTimeMillis() - startTime
             Log.w(tag, "Cascade execution timed out after ${totalLatency}ms")
             CascadeExecutionResult(
-                content = "⏱️ Tiempo de espera agotado (25s)\n\nEl servidor tardó más de 25 segundos en responder. Por favor, verifica tu conexión a Internet e intenta enviar tu mensaje nuevamente.",
+                content = "⏱️ Tiempo de espera agotado (50s)\n\nEl servidor de Google tardó más de 50 segundos en responder. Por favor, intenta enviar tu mensaje nuevamente o prueba cambiando tu API Key en los Ajustes si la cuota fue excedida.",
                 usedModel = primaryModel,
                 requestedPrimaryModel = primaryModel,
                 wasCascaded = false,

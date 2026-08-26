@@ -292,6 +292,9 @@ fun MainChatScreen(
             onDismiss = { showSettingsSheet = false },
             onSetPersona = { persona ->
                 viewModel.setSystemPersona(persona)
+            },
+            onSaveApiKey = { newKey ->
+                viewModel.saveApiKey(newKey)
             }
         )
     }

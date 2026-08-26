@@ -52,10 +52,10 @@ object GeminiClient {
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(12, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .writeTimeout(12, TimeUnit.SECONDS)
-            .callTimeout(24, TimeUnit.SECONDS)
+            .connectTimeout(25, TimeUnit.SECONDS)
+            .readTimeout(50, TimeUnit.SECONDS)
+            .writeTimeout(25, TimeUnit.SECONDS)
+            .callTimeout(55, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .addInterceptor(loggingInterceptor)
             .build()
