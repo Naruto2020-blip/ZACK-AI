@@ -85,8 +85,10 @@ fun ChatMessageBubble(
     var isCopied by remember { mutableStateOf(false) }
     var showCascadeDetails by remember { mutableStateOf(false) }
 
-    val timeFormat = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
-    val formattedTime = remember(message.timestamp) { timeFormat.format(Date(message.timestamp)) }
+    val timeFormat12h = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
+    val formattedTime = remember(message.timestamp) { timeFormat12h.format(Date(message.timestamp)) }
+    val formattedDateTime = remember(message.timestamp) { dateFormat.format(Date(message.timestamp)) }
 
     Column(
         modifier = modifier
@@ -322,56 +324,67 @@ fun ChatMessageBubble(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Bottom Actions Bar (Copy & Read Aloud)
+                        // Bottom Actions Bar (Date/Time 12h, Copy & Read Aloud)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(
-                                onClick = { onSpeak(message.content) },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .testTag("speak_message_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                    contentDescription = "Leer en voz alta",
-                                    tint = TextSecondaryDark,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                            Text(
+                                text = formattedTime,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF64748B),
+                                fontSize = 10.sp
+                            )
 
-                            IconButton(
-                                onClick = {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Mensaje AI", message.content)
-                                    clipboard.setPrimaryClip(clip)
-                                    isCopied = true
-                                    Toast.makeText(context, "Respuesta copiada", Toast.LENGTH_SHORT).show()
-                                    scope.launch {
-                                        delay(2000L)
-                                        isCopied = false
-                                    }
-                                },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .testTag("copy_message_button")
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (isCopied) {
+                                IconButton(
+                                    onClick = { onSpeak(message.content) },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .testTag("speak_message_button")
+                                ) {
                                     Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Copiado",
-                                        tint = EmeraldGreen,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.ContentCopy,
-                                        contentDescription = "Copiar respuesta",
+                                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = "Leer en voz alta",
                                         tint = TextSecondaryDark,
                                         modifier = Modifier.size(16.dp)
                                     )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        val clip = ClipData.newPlainText("Mensaje AI", message.content)
+                                        clipboard.setPrimaryClip(clip)
+                                        isCopied = true
+                                        Toast.makeText(context, "Respuesta copiada", Toast.LENGTH_SHORT).show()
+                                        scope.launch {
+                                            delay(2000L)
+                                            isCopied = false
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .testTag("copy_message_button")
+                                ) {
+                                    if (isCopied) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Copiado",
+                                            tint = EmeraldGreen,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentCopy,
+                                            contentDescription = "Copiar respuesta",
+                                            tint = TextSecondaryDark,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
