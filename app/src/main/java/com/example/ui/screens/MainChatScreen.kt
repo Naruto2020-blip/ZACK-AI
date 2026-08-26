@@ -225,6 +225,7 @@ fun MainChatScreen(
                             items(uiState.messages, key = { it.id }) { message ->
                                 ChatMessageBubble(
                                     message = message,
+                                    sessionTitle = uiState.currentSessionTitle,
                                     onSpeak = { text ->
                                         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "msg_${message.id}")
                                     }

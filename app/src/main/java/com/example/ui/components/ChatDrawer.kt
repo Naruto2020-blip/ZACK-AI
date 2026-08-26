@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -35,7 +36,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +77,53 @@ fun ChatDrawerContent(
     modifier: Modifier = Modifier
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
+    var sessionToDelete by remember { mutableStateOf<ChatSessionEntity?>(null) }
+
+    // Diálogo de confirmación para eliminar conversación individual
+    if (sessionToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            title = {
+                Text(
+                    text = "¿Eliminar esta conversación?",
+                    color = TextPrimaryDark,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Esta acción no se puede deshacer.",
+                    color = TextSecondaryDark,
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val targetId = sessionToDelete?.id
+                        if (targetId != null) {
+                            onDeleteSession(targetId)
+                        }
+                        sessionToDelete = null
+                    },
+                    modifier = Modifier.testTag("confirm_delete_button")
+                ) {
+                    Text("Sí", color = RoseRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { sessionToDelete = null },
+                    modifier = Modifier.testTag("cancel_delete_button")
+                ) {
+                    Text("Cancelar", color = TextSecondaryDark)
+                }
+            },
+            containerColor = ObsidianCard,
+            shape = RoundedCornerShape(14.dp)
+        )
+    }
 
     Column(
         modifier = modifier
@@ -188,69 +239,87 @@ fun ChatDrawerContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Sessions list
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            items(sessions, key = { it.id }) { session ->
-                val isSelected = session.id == currentSessionId
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onSelectSession(session.id) }
-                        .testTag("session_item_${session.id}"),
-                    color = if (isSelected) ObsidianCard else Color.Transparent,
-                    shape = RoundedCornerShape(8.dp),
-                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, DeepIndigo) else null
-                ) {
-                    Row(
+        if (sessions.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = 24.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Text(
+                    text = "No hay conversaciones",
+                    color = Color(0xFF475569),
+                    fontSize = 12.sp
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(sessions, key = { it.id }) { session ->
+                    val isSelected = session.id == currentSessionId
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 10.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onSelectSession(session.id) }
+                            .testTag("session_item_${session.id}"),
+                        color = if (isSelected) ObsidianCard else Color.Transparent,
+                        shape = RoundedCornerShape(8.dp),
+                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, DeepIndigo) else null
                     ) {
                         Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.ChatBubbleOutline,
-                                contentDescription = null,
-                                tint = if (isSelected) ElectricCyan else TextSecondaryDark,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = session.title,
-                                    color = if (isSelected) TextPrimaryDark else TextSecondaryDark,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ChatBubbleOutline,
+                                    contentDescription = null,
+                                    tint = if (isSelected) ElectricCyan else TextSecondaryDark,
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                Text(
-                                    text = dateFormat.format(Date(session.updatedAt)),
-                                    color = Color(0xFF64748B),
-                                    fontSize = 10.sp
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = session.title,
+                                        color = if (isSelected) TextPrimaryDark else TextSecondaryDark,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = dateFormat.format(Date(session.updatedAt)),
+                                        color = Color(0xFF64748B),
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+
+                            IconButton(
+                                onClick = { sessionToDelete = session },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("delete_session_button_${session.id}")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteOutline,
+                                    contentDescription = "Eliminar chat",
+                                    tint = Color(0xFF64748B),
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
-                        }
-
-                        IconButton(
-                            onClick = { onDeleteSession(session.id) },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DeleteOutline,
-                                contentDescription = "Eliminar chat",
-                                tint = Color(0xFF64748B),
-                                modifier = Modifier.size(14.dp)
-                            )
                         }
                     }
                 }

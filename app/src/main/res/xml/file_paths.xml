@@ -2,4 +2,8 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <cache-path name="camera_photos" path="camera/" />
     <cache-path name="shared_images" path="images/" />
+    <cache-path name="documents" path="documents/" />
+    <files-path name="files_documents" path="documents/" />
+    <external-files-path name="ext_documents" path="documents/" />
+    <external-path name="ext_download" path="Download/" />
 </paths>

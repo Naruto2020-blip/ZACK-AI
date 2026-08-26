@@ -32,7 +32,7 @@ import com.example.util.ProcessedAttachment
 
 data class ChatUiState(
     val currentSessionId: String? = null,
-    val currentSessionTitle: String = "Nueva Conversación",
+    val currentSessionTitle: String = "",
     val messages: List<ChatMessageEntity> = emptyList(),
     val isGenerating: Boolean = false,
     val isProcessingFile: Boolean = false,
@@ -92,7 +92,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.allSessions.collectLatest { sessionList ->
                 if (sessionList.isEmpty()) {
-                    val newId = repository.createNewSession("Conversación Principal")
+                    val newId = repository.createNewSession("")
                     selectSession(newId)
                 } else if (_uiState.value.currentSessionId == null) {
                     selectSession(sessionList.first().id)
@@ -151,16 +151,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val currentSession = sessions.value.find { it.id == sessionId }
                 _uiState.value = _uiState.value.copy(
                     messages = msgs,
-                    currentSessionTitle = currentSession?.title ?: "Conversación"
+                    currentSessionTitle = currentSession?.title ?: ""
                 )
             }
         }
     }
 
-    fun createNewSession(title: String = "Nueva Conversación") {
+    fun createNewSession(title: String = "") {
         viewModelScope.launch {
             val newId = repository.createNewSession(title, _uiState.value.systemPersona)
-            selectSession(newId)
+            _uiState.value = _uiState.value.copy(
+                currentSessionId = newId,
+                messages = emptyList(),
+                currentSessionTitle = ""
+            )
         }
     }
 
@@ -171,7 +175,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (remaining.isNotEmpty()) {
                 selectSession(remaining.first().id)
             } else {
-                createNewSession()
+                val newId = repository.createNewSession("")
+                _uiState.value = _uiState.value.copy(
+                    currentSessionId = newId,
+                    messages = emptyList(),
+                    currentSessionTitle = ""
+                )
             }
         }
     }
@@ -179,7 +188,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun clearAllSessions() {
         viewModelScope.launch {
             repository.clearAll()
-            createNewSession("Conversación Principal")
+            val newId = repository.createNewSession("")
+            _uiState.value = _uiState.value.copy(
+                currentSessionId = newId,
+                messages = emptyList(),
+                currentSessionTitle = ""
+            )
         }
     }
 

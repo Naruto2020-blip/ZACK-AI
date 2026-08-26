@@ -67,23 +67,52 @@ import com.example.ui.theme.RadiantViolet
 import com.example.ui.theme.RoseRed
 import com.example.ui.theme.TextPrimaryDark
 import com.example.ui.theme.TextSecondaryDark
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Slideshow
+import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.util.DocumentExporter
+import com.example.util.ExportFormat
+import android.graphics.Bitmap
+import androidx.compose.material.icons.filled.Draw
+import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import com.example.util.DocumentSignatureDetector
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatMessageBubble(
     message: ChatMessageEntity,
     onSpeak: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    sessionTitle: String? = null
 ) {
     val isUser = message.role == "user"
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isCopied by remember { mutableStateOf(false) }
     var showCascadeDetails by remember { mutableStateOf(false) }
+    var showExportSheet by remember { mutableStateOf(false) }
+    var isExporting by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Smart Signature State
+    var showSignaturePad by remember { mutableStateOf(false) }
+    var showSignaturePlacement by remember { mutableStateOf(false) }
+    var currentSignatureBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val isSignableDocument = remember(message.content, message.isError) {
+        !message.isError && DocumentSignatureDetector.isSignableDocument(message.content)
+    }
 
     val timeFormat12h = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
@@ -242,7 +271,7 @@ fun ChatMessageBubble(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Bottom Actions Bar (Date/Time 12h, Copy & Read Aloud)
+                        // Bottom Actions Bar (Date/Time 12h, Download Button, Copy & Read Aloud)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -256,8 +285,97 @@ fun ChatMessageBubble(
                             )
 
                             Row(
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
+                                // ✍️ Firmar button (ONLY if signable document: letters, resignations, contracts, requests, agreements, affidavits)
+                                if (isSignableDocument && message.content.isNotBlank()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = EmeraldGreen.copy(alpha = if (currentSignatureBitmap != null) 0.35f else 0.18f),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (currentSignatureBitmap != null) EmeraldGreen else EmeraldGreen.copy(alpha = 0.6f)
+                                        ),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                if (currentSignatureBitmap != null) {
+                                                    showSignaturePlacement = true
+                                                } else {
+                                                    showSignaturePad = true
+                                                }
+                                            }
+                                            .testTag("sign_document_button_${message.id}")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = if (currentSignatureBitmap != null) Icons.Default.Check else Icons.Default.Draw,
+                                                contentDescription = "Firmar",
+                                                tint = EmeraldGreen,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = if (currentSignatureBitmap != null) "✍️ Firmado" else "✍️ Firmar",
+                                                color = EmeraldGreen,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // 📥 Descargar button (only if not an error)
+                                if (!message.isError && message.content.isNotBlank()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = DeepIndigo.copy(alpha = 0.3f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, DeepIndigo.copy(alpha = 0.6f)),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { showExportSheet = true }
+                                            .testTag("download_button_${message.id}")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (isExporting) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(13.dp),
+                                                    strokeWidth = 1.5.dp,
+                                                    color = ElectricCyan
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "Exportando...",
+                                                    color = ElectricCyan,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.Default.FileDownload,
+                                                    contentDescription = "Descargar",
+                                                    tint = ElectricCyan,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "📥 Descargar",
+                                                    color = ElectricCyan,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
                                 IconButton(
                                     onClick = { onSpeak(message.content) },
                                     modifier = Modifier
@@ -309,6 +427,238 @@ fun ChatMessageBubble(
                     }
                 }
             }
+        }
+    }
+
+    // Modal Bottom Sheet with the 4 export formats
+    if (showExportSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showExportSheet = false },
+            sheetState = sheetState,
+            containerColor = ObsidianCard,
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 10.dp)
+                        .size(width = 36.dp, height = 4.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF475569))
+                )
+            },
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            ExportFormatSelectorSheet(
+                onSelectFormat = { format ->
+                    showExportSheet = false
+                    scope.launch {
+                        isExporting = true
+                        DocumentExporter.exportAndShare(
+                            context = context,
+                            content = message.content,
+                            format = format,
+                            sessionTitle = sessionTitle,
+                            signatureBitmap = currentSignatureBitmap
+                        )
+                        isExporting = false
+                    }
+                },
+                onDismiss = { showExportSheet = false }
+            )
+        }
+    }
+
+    // 1. Signature Pad Dialog (Draw with finger)
+    if (showSignaturePad) {
+        SignaturePadDialog(
+            onDismiss = { showSignaturePad = false },
+            onSignatureConfirmed = { bitmap ->
+                currentSignatureBitmap = bitmap
+                showSignaturePad = false
+                showSignaturePlacement = true
+                Toast.makeText(context, "Firma guardada. Ajusta su tamaño y posición.", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // 2. Signature Placement & Adjustment Dialog
+    if (showSignaturePlacement && currentSignatureBitmap != null) {
+        SignaturePlacementDialog(
+            signatureBitmap = currentSignatureBitmap!!,
+            documentContent = message.content,
+            onDismiss = { showSignaturePlacement = false },
+            onReSign = {
+                showSignaturePlacement = false
+                showSignaturePad = true
+            },
+            onConfirmAndDownload = { _, _ ->
+                showSignaturePlacement = false
+                Toast.makeText(context, "Firma fijada en el documento. Ya puedes descargarlo.", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+}
+
+@Composable
+fun ExportFormatSelectorSheet(
+    onSelectFormat: (ExportFormat) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .padding(bottom = 24.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "📥 Descargar Documento",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimaryDark,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+                Text(
+                    text = "Elige el formato en el que deseas guardar:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondaryDark,
+                    fontSize = 12.sp
+                )
+            }
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Cerrar",
+                    tint = TextSecondaryDark,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 4 Options Grid/List
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            ExportFormatOptionCard(
+                format = ExportFormat.PDF,
+                badgeColor = Color(0xFFEF4444), // Red for PDF
+                icon = Icons.Default.PictureAsPdf,
+                onClick = { onSelectFormat(ExportFormat.PDF) }
+            )
+
+            ExportFormatOptionCard(
+                format = ExportFormat.WORD,
+                badgeColor = Color(0xFF2563EB), // Blue for Word
+                icon = Icons.Default.Description,
+                onClick = { onSelectFormat(ExportFormat.WORD) }
+            )
+
+            ExportFormatOptionCard(
+                format = ExportFormat.POWERPOINT,
+                badgeColor = Color(0xFFEA580C), // Orange for PowerPoint
+                icon = Icons.Default.Slideshow,
+                onClick = { onSelectFormat(ExportFormat.POWERPOINT) }
+            )
+
+            ExportFormatOptionCard(
+                format = ExportFormat.EXCEL,
+                badgeColor = Color(0xFF16A34A), // Green for Excel
+                icon = Icons.Default.TableChart,
+                onClick = { onSelectFormat(ExportFormat.EXCEL) }
+            )
+        }
+    }
+}
+
+@Composable
+fun ExportFormatOptionCard(
+    format: ExportFormat,
+    badgeColor: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .border(1.dp, ObsidianCardBorder, RoundedCornerShape(12.dp))
+            .testTag("export_option_${format.extension}"),
+        color = ObsidianBackground.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(badgeColor.copy(alpha = 0.15f))
+                    .border(1.dp, badgeColor.copy(alpha = 0.4f), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = format.displayName,
+                    tint = badgeColor,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = format.displayName,
+                        color = TextPrimaryDark,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = badgeColor.copy(alpha = 0.2f),
+                        modifier = Modifier.padding(1.dp)
+                    ) {
+                        Text(
+                            text = format.badge,
+                            color = badgeColor,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = format.description,
+                    color = TextSecondaryDark,
+                    fontSize = 11.sp
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Default.FileDownload,
+                contentDescription = null,
+                tint = ElectricCyan.copy(alpha = 0.8f),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }

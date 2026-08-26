@@ -22,7 +22,7 @@ class ChatRepository(private val chatDao: ChatDao) {
     }
 
     suspend fun createNewSession(
-        title: String = "Nueva Conversación",
+        title: String = "",
         systemPersona: String = "default"
     ): String {
         val id = UUID.randomUUID().toString()
@@ -50,10 +50,12 @@ class ChatRepository(private val chatDao: ChatDao) {
     }
 
     suspend fun deleteSession(sessionId: String) {
+        chatDao.deleteMessagesForSession(sessionId)
         chatDao.deleteSessionById(sessionId)
     }
 
     suspend fun clearAll() {
+        chatDao.clearAllMessages()
         chatDao.clearAllSessions()
     }
 
@@ -81,9 +83,12 @@ class ChatRepository(private val chatDao: ChatDao) {
         val id = chatDao.insertMessage(msg)
         val session = chatDao.getSessionById(sessionId)
         if (session != null) {
-            // Auto update session title if it's the first user message
-            val updatedTitle = if (session.title == "Nueva Conversación" && role == "user") {
-                content.take(30).trim() + if (content.length > 30) "..." else ""
+            // Auto update session title with the beginning of the first user message
+            val updatedTitle = if ((session.title.isBlank() || session.title == "Nueva Conversación" || session.title == "Conversación Principal") && role == "user") {
+                val cleanPrompt = content.replace(Regex("^\\[(📷 Foto|📂 Documento).*?\\]\\n\\n", RegexOption.DOT_MATCHES_ALL), "").trim()
+                val snippet = if (cleanPrompt.isNotBlank()) cleanPrompt else content
+                val firstLine = snippet.lines().firstOrNull { it.isNotBlank() }?.trim() ?: snippet
+                if (firstLine.length > 35) firstLine.take(35).trim() + "..." else firstLine
             } else {
                 session.title
             }
