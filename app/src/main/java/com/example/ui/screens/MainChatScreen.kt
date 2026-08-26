@@ -88,9 +88,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.ApiKeyDialog
+import com.example.ui.components.AttachmentActionBar
 import com.example.ui.components.CascadeStatusSheet
 import com.example.ui.components.ChatDrawerContent
 import com.example.ui.components.ChatMessageBubble
+import com.example.ui.components.FilePickerMenu
 import com.example.ui.theme.AmberGold
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.DeepIndigo
@@ -352,6 +354,17 @@ fun MainChatScreen(
                     }
                 }
 
+                // Attached file preview and quick action buttons
+                AttachmentActionBar(
+                    attachedFile = uiState.attachedFile,
+                    isProcessingFile = uiState.isProcessingFile,
+                    onRemoveAttachment = { viewModel.removeAttachedFile() },
+                    onQuickAction = { promptAction ->
+                        viewModel.sendMessage(inputText, customActionPrefix = promptAction)
+                        inputText = ""
+                    }
+                )
+
                 // Bottom Chat Input Field Bar
                 ChatInputBar(
                     inputText = inputText,
@@ -372,6 +385,12 @@ fun MainChatScreen(
                         } catch (e: Exception) {
                             Toast.makeText(context, "Reconocimiento de voz no disponible", Toast.LENGTH_SHORT).show()
                         }
+                    },
+                    onFileSelected = { uri ->
+                        viewModel.attachFileUri(uri)
+                    },
+                    onTakePhoto = { uri ->
+                        viewModel.attachFileUri(uri)
                     },
                     isGenerating = uiState.isGenerating,
                     selectedModel = uiState.selectedModel.displayName,
@@ -621,6 +640,8 @@ fun ChatInputBar(
     onTextChanged: (String) -> Unit,
     onSend: () -> Unit,
     onVoiceRecord: () -> Unit,
+    onFileSelected: (android.net.Uri) -> Unit,
+    onTakePhoto: (android.net.Uri) -> Unit,
     isGenerating: Boolean,
     selectedModel: String,
     onModelChipClick: () -> Unit
@@ -633,9 +654,15 @@ fun ChatInputBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Attach File / Camera button
+            FilePickerMenu(
+                onFileSelected = onFileSelected,
+                onTakePhoto = onTakePhoto
+            )
+
             // Voice record button
             IconButton(
                 onClick = onVoiceRecord,
@@ -651,7 +678,7 @@ fun ChatInputBar(
                 )
             }
 
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(2.dp))
 
             // Main Text Input
             OutlinedTextField(
@@ -659,9 +686,9 @@ fun ChatInputBar(
                 onValueChange = onTextChanged,
                 placeholder = {
                     Text(
-                        text = "Escribe un mensaje...",
+                        text = "Escribe o sube PDF, Word, fotos...",
                         color = Color(0xFF94A3B8),
-                        fontSize = 14.sp
+                        fontSize = 13.sp
                     )
                 },
                 maxLines = 4,
@@ -675,7 +702,7 @@ fun ChatInputBar(
                     unfocusedTextColor = TextPrimaryDark,
                     cursorColor = ElectricCyan
                 ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { if (inputText.isNotBlank() && !isGenerating) onSend() }),
                 modifier = Modifier
                     .weight(1f)
@@ -696,7 +723,7 @@ fun ChatInputBar(
                             Brush.linearGradient(listOf(Color(0xFF1E293B), Color(0xFF1E293B)))
                         }
                     )
-                    .clickable(enabled = inputText.isNotBlank() && !isGenerating) {
+                    .clickable(enabled = (inputText.isNotBlank() || isGenerating.not()) && !isGenerating) {
                         onSend()
                     }
                     .testTag("send_message_button"),

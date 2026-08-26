@@ -5,6 +5,7 @@ import com.example.data.local.ChatMessageEntity
 import com.example.data.model.CascadeExecutionResult
 import com.example.data.model.CascadeHop
 import com.example.data.model.GeminiModelSpec
+import com.example.data.remote.BlobDto
 import com.example.data.remote.ContentDto
 import com.example.data.remote.GeminiApiService
 import com.example.data.remote.GeminiClient
@@ -28,6 +29,8 @@ class CascadeEngine(
         autoCascadeEnabled: Boolean = true,
         systemInstruction: String? = null,
         temperature: Float = 0.7f,
+        attachmentMimeType: String? = null,
+        attachmentBase64: String? = null,
         onCascadeHop: ((CascadeHop) -> Unit)? = null
     ): CascadeExecutionResult = withContext(Dispatchers.IO) {
         val apiKey = GeminiClient.getApiKey()
@@ -61,11 +64,26 @@ class CascadeEngine(
                 )
             }
         }
+        
+        // Build parts for current prompt
+        val currentParts = mutableListOf<PartDto>()
+        if (!attachmentBase64.isNullOrBlank() && !attachmentMimeType.isNullOrBlank()) {
+            currentParts.add(
+                PartDto(
+                    inlineData = BlobDto(
+                        mimeType = attachmentMimeType,
+                        data = attachmentBase64
+                    )
+                )
+            )
+        }
+        currentParts.add(PartDto(text = newPrompt))
+
         // Add current prompt
         contents.add(
             ContentDto(
                 role = "user",
-                parts = listOf(PartDto(text = newPrompt))
+                parts = currentParts
             )
         )
 

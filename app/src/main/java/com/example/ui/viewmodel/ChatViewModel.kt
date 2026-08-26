@@ -26,11 +26,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+import android.net.Uri
+import com.example.util.FileProcessor
+import com.example.util.ProcessedAttachment
+
 data class ChatUiState(
     val currentSessionId: String? = null,
     val currentSessionTitle: String = "Nueva Conversación",
     val messages: List<ChatMessageEntity> = emptyList(),
     val isGenerating: Boolean = false,
+    val isProcessingFile: Boolean = false,
     val selectedModel: GeminiModelSpec = GeminiModelSpec.GEMINI_3_7_FLASH,
     val isAutoCascadeEnabled: Boolean = true,
     val activeCascadeHop: CascadeHop? = null,
@@ -41,7 +46,8 @@ data class ChatUiState(
     val isRunningDiagnostics: Boolean = false,
     val snackbarMessage: String? = null,
     val isApiKeyConfigured: Boolean = false,
-    val currentApiKey: String = ""
+    val currentApiKey: String = "",
+    val attachedFile: ProcessedAttachment? = null
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -205,9 +211,41 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(temperature = temp)
     }
 
-    fun sendMessage(prompt: String) {
-        val trimmed = prompt.trim()
-        if (trimmed.isBlank() || _uiState.value.isGenerating) return
+    fun attachFileUri(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isProcessingFile = true)
+            try {
+                val processed = FileProcessor.processUri(getApplication(), uri)
+                _uiState.value = _uiState.value.copy(
+                    attachedFile = processed,
+                    isProcessingFile = false
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isProcessingFile = false,
+                    snackbarMessage = "Error al procesar archivo: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+
+    fun removeAttachedFile() {
+        _uiState.value = _uiState.value.copy(attachedFile = null)
+    }
+
+    fun sendMessage(prompt: String, customActionPrefix: String? = null) {
+        val currentAttached = _uiState.value.attachedFile
+        val rawPrompt = prompt.trim()
+        
+        val effectivePrompt = when {
+            rawPrompt.isNotBlank() && customActionPrefix != null -> "$customActionPrefix\n\n$rawPrompt"
+            rawPrompt.isNotBlank() -> rawPrompt
+            currentAttached != null && customActionPrefix != null -> customActionPrefix
+            currentAttached != null -> "Por favor analiza en detalle el contenido de este archivo adjunto (${currentAttached.name}) y proporciona un desglose estructurado."
+            else -> return
+        }
+
+        if (_uiState.value.isGenerating) return
 
         val sessionId = _uiState.value.currentSessionId ?: return
         viewModelScope.launch {
@@ -216,23 +254,49 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 activeCascadeHop = null
             )
 
+            // Format displayed user message
+            val displayMessage = if (currentAttached != null) {
+                val fileTag = if (currentAttached.isImage) "📷 [Foto/Imagen: ${currentAttached.name}]"
+                else "📂 [Documento: ${currentAttached.name}]"
+                "$fileTag\n\n$effectivePrompt"
+            } else {
+                effectivePrompt
+            }
+
             // Save user message to database
             repository.insertMessage(
                 sessionId = sessionId,
                 role = "user",
-                content = trimmed
+                content = displayMessage
             )
+
+            // Prepare prompt content: if text was extracted from docx/txt/pdf, append it directly into the prompt
+            val fullPromptForModel = if (currentAttached != null && !currentAttached.extractedText.isNullOrBlank()) {
+                """
+                [DOCUMENTO ADJUNTO: ${currentAttached.name}]
+                --- CONTENIDO EXTRAÍDO DEL DOCUMENTO ---
+                ${currentAttached.extractedText}
+                --- FIN DEL CONTENIDO ---
+
+                SOLICITUD DEL USUARIO:
+                $effectivePrompt
+                """.trimIndent()
+            } else {
+                effectivePrompt
+            }
 
             val history = repository.getMessagesForSessionSync(sessionId)
             val systemInstruction = personaPrompts[_uiState.value.systemPersona]
 
             val result = cascadeEngine.executeCascade(
                 history = history,
-                newPrompt = trimmed,
+                newPrompt = fullPromptForModel,
                 primaryModel = _uiState.value.selectedModel,
                 autoCascadeEnabled = _uiState.value.isAutoCascadeEnabled,
                 systemInstruction = systemInstruction,
                 temperature = _uiState.value.temperature,
+                attachmentMimeType = currentAttached?.mimeType,
+                attachmentBase64 = currentAttached?.base64Data,
                 onCascadeHop = { hop ->
                     _uiState.value = _uiState.value.copy(activeCascadeHop = hop)
                 }
@@ -256,7 +320,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             _uiState.value = _uiState.value.copy(
                 isGenerating = false,
-                activeCascadeHop = null
+                activeCascadeHop = null,
+                attachedFile = null // Clear attachment after successful message
             )
         }
     }
