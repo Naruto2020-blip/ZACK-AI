@@ -265,15 +265,6 @@ fun ModesDialog(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "💡 Puedes cambiar el modo en cualquier momento desde el menú lateral.",
-                    color = TextSecondaryDark,
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp
-                )
             }
         }
     }
