@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -93,7 +94,9 @@ import java.util.Locale
 @Composable
 fun ChatMessageBubble(
     message: ChatMessageEntity,
-    onSpeak: (String) -> Unit,
+    onSpeak: (String) -> Unit = {},
+    isSpeaking: Boolean = false,
+    onToggleSpeak: () -> Unit = { onSpeak(message.content) },
     modifier: Modifier = Modifier,
     sessionTitle: String? = null
 ) {
@@ -376,18 +379,50 @@ fun ChatMessageBubble(
                                     }
                                 }
 
-                                IconButton(
-                                    onClick = { onSpeak(message.content) },
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .testTag("speak_message_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                        contentDescription = "Leer en voz alta",
-                                        tint = TextSecondaryDark,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                // 🔊 Altavoz (Leer respuesta en voz alta / Detener lectura)
+                                if (isSpeaking) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = RadiantViolet.copy(alpha = 0.25f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, RadiantViolet),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { onToggleSpeak() }
+                                            .testTag("stop_speak_button_${message.id}")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Stop,
+                                                contentDescription = "Detener lectura",
+                                                tint = RadiantViolet,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "⏹️ Detener",
+                                                color = RadiantViolet,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    IconButton(
+                                        onClick = onToggleSpeak,
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .testTag("speak_message_button_${message.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                            contentDescription = "Leer en voz alta",
+                                            tint = TextSecondaryDark,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
 
                                 IconButton(

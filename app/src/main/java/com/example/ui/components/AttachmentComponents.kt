@@ -100,14 +100,21 @@ fun AttachmentActionBar(
                             contentScale = ContentScale.Crop
                         )
                     } else {
+                        val isPdf = attachedFile.name.endsWith(".pdf", true)
+                        val isWord = attachedFile.name.endsWith(".docx", true) || attachedFile.name.endsWith(".doc", true)
+                        val isExcel = attachedFile.name.endsWith(".xlsx", true) || attachedFile.name.endsWith(".xls", true) || attachedFile.name.endsWith(".csv", true)
+                        val isPpt = attachedFile.name.endsWith(".pptx", true) || attachedFile.name.endsWith(".ppt", true)
+
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(
                                     when {
-                                        attachedFile.name.endsWith(".pdf", true) -> Color(0xFFE11D48)
-                                        attachedFile.name.endsWith(".docx", true) || attachedFile.name.endsWith(".doc", true) -> Color(0xFF2563EB)
+                                        isPdf -> Color(0xFFEF4444)
+                                        isWord -> Color(0xFF2563EB)
+                                        isExcel -> Color(0xFF16A34A)
+                                        isPpt -> Color(0xFFEA580C)
                                         else -> Color(0xFF059669)
                                     }
                                 ),
@@ -115,8 +122,10 @@ fun AttachmentActionBar(
                         ) {
                             Icon(
                                 imageVector = when {
-                                    attachedFile.name.endsWith(".pdf", true) -> Icons.Default.PictureAsPdf
-                                    attachedFile.name.endsWith(".docx", true) || attachedFile.name.endsWith(".doc", true) -> Icons.Default.Description
+                                    isPdf -> Icons.Default.PictureAsPdf
+                                    isWord -> Icons.Default.Description
+                                    isExcel -> Icons.Default.TableChart
+                                    isPpt -> Icons.Default.Slideshow
                                     else -> Icons.Default.Article
                                 },
                                 contentDescription = null,
@@ -137,11 +146,17 @@ fun AttachmentActionBar(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        val fileStatusDesc = when {
+                            attachedFile.isImage -> "Foto lista para OCR y Análisis Visual"
+                            attachedFile.name.endsWith(".pdf", true) -> "Documento PDF (${attachedFile.pageCount} págs) listo"
+                            attachedFile.name.endsWith(".xlsx", true) || attachedFile.name.endsWith(".csv", true) -> "Hoja de cálculo Excel (Tablas y cálculos leídos)"
+                            attachedFile.name.endsWith(".pptx", true) -> "Presentación PowerPoint (Diapositivas leídas)"
+                            attachedFile.name.endsWith(".docx", true) -> "Documento Word (.docx) listo"
+                            !attachedFile.extractedText.isNullOrBlank() -> "Texto extraído (${attachedFile.extractedText.length} caracteres)"
+                            else -> "Archivo listo para procesar con IA"
+                        }
                         Text(
-                            text = if (attachedFile.isImage) "Foto lista para OCR y Análisis Visual"
-                            else if (attachedFile.name.endsWith(".pdf", true)) "Documento PDF (${attachedFile.pageCount} págs) listo para lectura"
-                            else if (!attachedFile.extractedText.isNullOrBlank()) "Texto extraído (${attachedFile.extractedText.length} caracteres)"
-                            else "Archivo listo para procesar con IA",
+                            text = fileStatusDesc,
                             color = TextSecondaryDark,
                             fontSize = 11.sp
                         )
@@ -324,7 +339,7 @@ fun FilePickerMenu(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text("Documento PDF / Word", color = TextPrimaryDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Lee texto completo y tablas", color = TextSecondaryDark, fontSize = 10.sp)
+                            Text("Lee texto completo y tablas (.pdf, .docx)", color = TextSecondaryDark, fontSize = 10.sp)
                         }
                     }
                 },
@@ -337,6 +352,63 @@ fun FilePickerMenu(
                             "application/msword",
                             "text/plain",
                             "text/*"
+                        )
+                    )
+                }
+            )
+
+            DropdownMenuItem(
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.TableChart,
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text("Excel (.xlsx / .csv)", color = TextPrimaryDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Lee tablas, datos, cálculos y celdas", color = TextSecondaryDark, fontSize = 10.sp)
+                        }
+                    }
+                },
+                onClick = {
+                    showMenu = false
+                    docPickerLauncher.launch(
+                        arrayOf(
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            "application/vnd.ms-excel",
+                            "text/csv",
+                            "application/octet-stream"
+                        )
+                    )
+                }
+            )
+
+            DropdownMenuItem(
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Slideshow,
+                            contentDescription = null,
+                            tint = Color(0xFFEA580C),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text("PowerPoint (.pptx)", color = TextPrimaryDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Lee diapositivas y presentaciones", color = TextSecondaryDark, fontSize = 10.sp)
+                        }
+                    }
+                },
+                onClick = {
+                    showMenu = false
+                    docPickerLauncher.launch(
+                        arrayOf(
+                            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                            "application/vnd.ms-powerpoint",
+                            "application/octet-stream"
                         )
                     )
                 }

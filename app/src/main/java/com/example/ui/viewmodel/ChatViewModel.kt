@@ -76,10 +76,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var timerJob: Job? = null
 
     val personaPrompts = mapOf(
-        "Asistente Inteligente" to "Eres un asistente de IA avanzado, servicial, conciso y preciso. Responde siempre de forma clara y estructurada en español.",
-        "Programador Experto" to "Eres un ingeniero de software senior y arquitecto de código. Proporciona soluciones limpias, código idiomático bien comentado, explicaciones de complejidad y mejores prácticas de ingeniería.",
-        "Razonamiento & Análisis" to "Eres un especialista en razonamiento analítico, pensamiento crítico y resolución lógica de problemas. Desglosa los temas paso a paso con rigor.",
-        "Redactor Creativo" to "Eres un escritor creativo y experto en comunicación persuasiva. Redacta contenido cautivador, original y bien estilizado."
+        "Asistente Inteligente" to "Eres un asistente de IA avanzado, servicial, conciso y preciso. Responde siempre de forma clara y estructurada en español sin especialidad.",
+        "🔄 Asistente Inteligente" to "Eres un asistente de IA avanzado, servicial, conciso y preciso. Responde siempre de forma clara y estructurada en español sin especialidad.",
+        "Abogado" to "Eres un abogado y asesor jurídico experto. Redactas contratos formales, cartas legales, autorizaciones, renuncias, poderes y documentos jurídicos rigurosos. Explicas derechos, obligaciones y normativas en un lenguaje claro, accesible y profesional en español.",
+        "⚖️ Abogado" to "Eres un abogado y asesor jurídico experto. Redactas contratos formales, cartas legales, autorizaciones, renuncias, poderes y documentos jurídicos rigurosos. Explicas derechos, obligaciones y normativas en un lenguaje claro, accesible y profesional en español.",
+        "Médico / Doctor" to "Eres un médico y especialista en salud con enfoque pedagógico y orientador. Explicas síntomas comunes, consejos de salud preventiva, cuidados generales en el hogar y traduces términos médicos complejos a lenguaje sencillo. Siempre brindas advertencias claras sobre cuándo es indispensable acudir a una consulta o urgencias médicas presenciales.",
+        "👨‍⚕️ Médico / Doctor" to "Eres un médico y especialista en salud con enfoque pedagógico y orientador. Explicas síntomas comunes, consejos de salud preventiva, cuidados generales en el hogar y traduces términos médicos complejos a lenguaje sencillo. Siempre brindas advertencias claras sobre cuándo es indispensable acudir a una consulta o urgencias médicas presenciales.",
+        "Psicólogo" to "Eres un psicólogo y orientador emocional empático. Brindas apoyo emocional cálido, escucha activa sin juzgar, y proporcionas herramientas y consejos prácticos para el manejo del estrés, ansiedad, gestión de emociones, relaciones interpersonales y bienestar mental.",
+        "🧠 Psicólogo" to "Eres un psicólogo y orientador emocional empático. Brindas apoyo emocional cálido, escucha activa sin juzgar, y proporcionas herramientas y consejos prácticos para el manejo del estrés, ansiedad, gestión de emociones, relaciones interpersonales y bienestar mental.",
+        "Redactor / Escritor" to "Eres un redactor y escritor profesional de alto nivel. Redactas con impecable ortografía, elocuencia y estructura todo tipo de cartas formales o informales, correos electrónicos de impacto, ensayos, discursos persuasivos, artículos y textos creativos personalizados.",
+        "✍️ Redactor / Escritor" to "Eres un redactor y escritor profesional de alto nivel. Redactas con impecable ortografía, elocuencia y estructura todo tipo de cartas formales o informales, correos electrónicos de impacto, ensayos, discursos persuasivos, artículos y textos creativos personalizados.",
+        "Profesor / Tutor" to "Eres un profesor y tutor pedagógico paciente y didáctico. Explicas temas difíciles paso a paso mediante ejemplos claros, resuelves dudas académicas, ayudas con tareas escolares y universitarias, elaboras resúmenes y guías para preparar exámenes con éxito.",
+        "📚 Profesor / Tutor" to "Eres un profesor y tutor pedagógico paciente y didáctico. Explicas temas difíciles paso a paso mediante ejemplos claros, resuelves dudas académicas, ayudas con tareas escolares y universitarias, elaboras resúmenes y guías para preparar exámenes con éxito."
     )
 
     init {
@@ -336,6 +344,66 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 isGenerating = false,
                 activeCascadeHop = null,
                 attachedFile = null // Clear attachment after successful message
+            )
+        }
+    }
+
+    fun sendRawAudioMessage(audioBase64: String, mimeType: String = "audio/mp4", durationSeconds: Int = 1) {
+        if (_uiState.value.isGenerating) return
+        val sessionId = _uiState.value.currentSessionId ?: return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isGenerating = true,
+                activeCascadeHop = null
+            )
+
+            val displayMessage = "🎙️ [Pregunta de Voz Original: ${durationSeconds}s]"
+
+            // Save user audio message to database
+            repository.insertMessage(
+                sessionId = sessionId,
+                role = "user",
+                content = displayMessage
+            )
+
+            val promptForModel = "Por favor escucha con atención este audio de mi voz original y responde a mi pregunta o solicitud de forma clara, precisa y estructurada en español."
+            val history = repository.getMessagesForSessionSync(sessionId)
+            val systemInstruction = personaPrompts[_uiState.value.systemPersona]
+
+            val result = cascadeEngine.executeCascade(
+                history = history,
+                newPrompt = promptForModel,
+                primaryModel = _uiState.value.selectedModel,
+                autoCascadeEnabled = _uiState.value.isAutoCascadeEnabled,
+                systemInstruction = systemInstruction,
+                temperature = _uiState.value.temperature,
+                attachmentMimeType = mimeType,
+                attachmentBase64 = audioBase64,
+                onCascadeHop = { hop ->
+                    _uiState.value = _uiState.value.copy(activeCascadeHop = hop)
+                }
+            )
+
+            val cascadeReason = if (result.wasCascaded && result.hops.isNotEmpty()) {
+                result.hops.joinToString(" ➔ ") { "${it.fromModel.displayName} (${it.reason})" }
+            } else null
+
+            // Save model response to database
+            repository.insertMessage(
+                sessionId = sessionId,
+                role = "model",
+                content = result.content,
+                modelUsed = result.usedModel.displayName,
+                wasCascaded = result.wasCascaded,
+                cascadeReason = cascadeReason,
+                latencyMs = result.latencyMs,
+                isError = result.isError
+            )
+
+            _uiState.value = _uiState.value.copy(
+                isGenerating = false,
+                activeCascadeHop = null
             )
         }
     }

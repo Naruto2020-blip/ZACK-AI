@@ -77,6 +77,46 @@ object FileProcessor {
             )
         }
 
+        // EXCEL (.xlsx) Handling - Parse tables, data, numbers and formulas
+        if (name.endsWith(".xlsx", ignoreCase = true) || mimeType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+            val xlsxTableText = extractDataFromXlsx(context, uri)
+            return@withContext ProcessedAttachment(
+                uri = uri,
+                name = name,
+                mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                sizeBytes = sizeBytes,
+                isImage = false,
+                extractedText = xlsxTableText
+            )
+        }
+
+        // POWERPOINT (.pptx) Handling - Parse slides and key points
+        if (name.endsWith(".pptx", ignoreCase = true) || mimeType == "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
+            val pptxText = extractTextFromPptx(context, uri)
+            return@withContext ProcessedAttachment(
+                uri = uri,
+                name = name,
+                mimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                sizeBytes = sizeBytes,
+                isImage = false,
+                extractedText = pptxText
+            )
+        }
+
+        // CSV Handling
+        if (name.endsWith(".csv", ignoreCase = true) || mimeType == "text/csv") {
+            val csvText = readPlainText(context, uri)
+            val formattedCsv = formatCsvAsTable(csvText)
+            return@withContext ProcessedAttachment(
+                uri = uri,
+                name = name,
+                mimeType = "text/csv",
+                sizeBytes = sizeBytes,
+                isImage = false,
+                extractedText = formattedCsv ?: csvText
+            )
+        }
+
         // Plain text / Markdown / CSV / JSON
         val plainText = readPlainText(context, uri)
         return@withContext ProcessedAttachment(
@@ -204,6 +244,178 @@ object FileProcessor {
         }
     }
 
+    private fun extractDataFromXlsx(context: Context, uri: Uri): String? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val zipInputStream = ZipInputStream(inputStream)
+            var entry = zipInputStream.nextEntry
+
+            val sharedStrings = mutableListOf<String>()
+            val sheetXmlMap = mutableMapOf<String, String>()
+
+            while (entry != null) {
+                if (entry.name == "xl/sharedStrings.xml") {
+                    val content = zipInputStream.bufferedReader().readText()
+                    // Extract all <t>...</t> tags
+                    val tPattern = Regex("""<t[^>]*>(.*?)</t>""")
+                    for (m in tPattern.findAll(content)) {
+                        sharedStrings.add(m.groupValues[1])
+                    }
+                } else if (entry.name.startsWith("xl/worksheets/sheet") && entry.name.endsWith(".xml")) {
+                    val content = zipInputStream.bufferedReader().readText()
+                    sheetXmlMap[entry.name] = content
+                }
+                entry = zipInputStream.nextEntry
+            }
+            zipInputStream.close()
+
+            if (sheetXmlMap.isEmpty()) return null
+
+            val resultSb = StringBuilder()
+            resultSb.append("📊 TABLAS Y DATOS DE LA HOJA DE CÁLCULO EXCEL:\n\n")
+
+            sheetXmlMap.toSortedMap().forEach { (sheetName, xmlContent) ->
+                val simpleSheetName = sheetName.substringAfterLast("/").substringBefore(".xml")
+                resultSb.append("### Hoja: $simpleSheetName\n\n")
+
+                // Extract rows: <row r="1">...</row>
+                val rowPattern = Regex("""<row[^>]*>([\s\S]*?)</row>""")
+                val cellPattern = Regex("""<c\s+r="([A-Z]+)(\d+)"(?:\s+t="([a-z]+)")?[^>]*>(?:<f>([^<]*)</f>)?(?:<v>([^<]*)</v>)?(?:<is><t>([^<]*)</t></is>)?</c>""")
+
+                val parsedRows = mutableListOf<Map<String, String>>()
+                val allCols = sortedSetOf<String>(Comparator { a, b ->
+                    if (a.length != b.length) a.length.compareTo(b.length)
+                    else a.compareTo(b)
+                })
+
+                for (rowMatch in rowPattern.findAll(xmlContent)) {
+                    val rowXml = rowMatch.groupValues[1]
+                    val rowCells = mutableMapOf<String, String>()
+
+                    for (cellMatch in cellPattern.findAll(rowXml)) {
+                        val colLetter = cellMatch.groupValues[1]
+                        val type = cellMatch.groupValues[3]
+                        val formula = cellMatch.groupValues[4]
+                        val rawValue = cellMatch.groupValues[5]
+                        val inlineStr = cellMatch.groupValues[6]
+
+                        allCols.add(colLetter)
+
+                        val cellText = when {
+                            type == "s" && rawValue.isNotBlank() -> {
+                                val sId = rawValue.toIntOrNull()
+                                if (sId != null && sId in sharedStrings.indices) sharedStrings[sId] else rawValue
+                            }
+                            type == "inlineStr" || inlineStr.isNotBlank() -> inlineStr
+                            rawValue.isNotBlank() -> rawValue
+                            formula.isNotBlank() -> "=$formula"
+                            else -> ""
+                        }
+                        if (cellText.isNotBlank()) {
+                            rowCells[colLetter] = cellText
+                        }
+                    }
+
+                    if (rowCells.isNotEmpty()) {
+                        parsedRows.add(rowCells)
+                    }
+                }
+
+                if (parsedRows.isNotEmpty() && allCols.isNotEmpty()) {
+                    // Format into Markdown Table
+                    val headerRow = parsedRows.firstOrNull() ?: emptyMap()
+                    val colList = allCols.toList()
+
+                    // Header
+                    resultSb.append("| ").append(colList.joinToString(" | ") { headerRow[it]?.replace("|", "/") ?: it }).append(" |\n")
+                    resultSb.append("| ").append(colList.joinToString(" | ") { "---" }).append(" |\n")
+
+                    // Data Rows
+                    for (rIdx in 1 until parsedRows.size) {
+                        val r = parsedRows[rIdx]
+                        resultSb.append("| ").append(colList.joinToString(" | ") { r[it]?.replace("|", "/") ?: "" }).append(" |\n")
+                    }
+                    resultSb.append("\n")
+                }
+            }
+
+            val finalStr = resultSb.toString().trim()
+            if (finalStr.length > 30) finalStr else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun extractTextFromPptx(context: Context, uri: Uri): String? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val zipInputStream = ZipInputStream(inputStream)
+            var entry = zipInputStream.nextEntry
+
+            val slideMap = mutableMapOf<String, String>()
+
+            while (entry != null) {
+                if (entry.name.startsWith("ppt/slides/slide") && entry.name.endsWith(".xml")) {
+                    val content = zipInputStream.bufferedReader().readText()
+                    slideMap[entry.name] = content
+                }
+                entry = zipInputStream.nextEntry
+            }
+            zipInputStream.close()
+
+            if (slideMap.isEmpty()) return null
+
+            val sb = StringBuilder()
+            sb.append("📽️ CONTENIDO DE LA PRESENTACIÓN POWERPOINT:\n\n")
+
+            slideMap.toSortedMap(Comparator { a, b ->
+                val numA = Regex("""\d+""").find(a)?.value?.toIntOrNull() ?: 0
+                val numB = Regex("""\d+""").find(b)?.value?.toIntOrNull() ?: 0
+                numA.compareTo(numB)
+            }).forEach { (slideName, xmlContent) ->
+                val slideNum = Regex("""\d+""").find(slideName)?.value ?: "1"
+                sb.append("### 📽️ Diapositiva $slideNum\n")
+
+                val tPattern = Regex("""<a:t[^>]*>(.*?)</a:t>""")
+                val textItems = mutableListOf<String>()
+                for (m in tPattern.findAll(xmlContent)) {
+                    val txt = m.groupValues[1].trim()
+                    if (txt.isNotBlank()) textItems.add(txt)
+                }
+
+                if (textItems.isNotEmpty()) {
+                    sb.append("• ").append(textItems.joinToString("\n• ")).append("\n\n")
+                } else {
+                    sb.append("(Diapositiva con elementos visuales/gráficos)\n\n")
+                }
+            }
+
+            val finalStr = sb.toString().trim()
+            if (finalStr.length > 20) finalStr else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun formatCsvAsTable(csv: String?): String? {
+        if (csv.isNullOrBlank()) return null
+        val lines = csv.lines().filter { it.isNotBlank() }
+        if (lines.isEmpty()) return null
+
+        val sb = StringBuilder()
+        sb.append("📊 TABLA DE DATOS CSV:\n\n")
+        lines.forEachIndexed { idx, line ->
+            val cols = line.split(",").map { it.trim().trim('\"') }
+            sb.append("| ").append(cols.joinToString(" | ")).append(" |\n")
+            if (idx == 0) {
+                sb.append("| ").append(cols.joinToString(" | ") { "---" }).append(" |\n")
+            }
+        }
+        return sb.toString()
+    }
+
     private fun readPlainText(context: Context, uri: Uri): String? {
         return try {
             context.contentResolver.openInputStream(uri)?.use { stream ->
@@ -249,6 +461,10 @@ object FileProcessor {
             "pdf" -> "application/pdf"
             "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             "doc" -> "application/msword"
+            "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "xls" -> "application/vnd.ms-excel"
+            "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            "ppt" -> "application/vnd.ms-powerpoint"
             "txt" -> "text/plain"
             "json" -> "application/json"
             "csv" -> "text/csv"

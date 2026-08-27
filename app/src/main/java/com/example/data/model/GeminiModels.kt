@@ -16,17 +16,19 @@ enum class GeminiModelSpec(
     val description: String,
     val speedRating: Int, // 1-5
     val reasoningRating: Int, // 1-5
+    val totalDailyRequests: Int = 1500, // Total quota allocated per daily renewal cycle
     val fallbackAliases: List<String> = emptyList()
 ) {
     GEMINI_FLASH_LATEST(
         id = "gemini-flash-latest",
-        displayName = "Gemini Flash (Universal)",
+        displayName = "Gemini Flash Universal",
         roleBadge = "Principal (Universal / Latest)",
         isPrimary = true,
         orderIndex = 1,
         description = "Redirección automática de Google al modelo Flash disponible con máxima compatibilidad global.",
         speedRating = 5,
         reasoningRating = 5,
+        totalDailyRequests = 1500,
         fallbackAliases = listOf("gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-2.0-flash")
     ),
     GEMINI_3_5_FLASH(
@@ -38,6 +40,7 @@ enum class GeminiModelSpec(
         description = "Excelente velocidad de respuesta y multimodalidad para uso continuo.",
         speedRating = 5,
         reasoningRating = 4,
+        totalDailyRequests = 1500,
         fallbackAliases = listOf("gemini-flash-latest", "gemini-1.5-flash")
     ),
     GEMINI_3_7_FLASH(
@@ -49,6 +52,7 @@ enum class GeminiModelSpec(
         description = "Máximo razonamiento híbrido y análisis de última generación.",
         speedRating = 5,
         reasoningRating = 5,
+        totalDailyRequests = 1000,
         fallbackAliases = listOf("gemini-pro-latest", "gemini-flash-latest")
     ),
     GEMINI_3_1_PRO(
@@ -60,6 +64,7 @@ enum class GeminiModelSpec(
         description = "Razonamiento lógico profundo, matemáticas y programación avanzada.",
         speedRating = 4,
         reasoningRating = 5,
+        totalDailyRequests = 1000,
         fallbackAliases = listOf("gemini-1.5-pro-latest", "gemini-flash-latest")
     ),
     GEMINI_3_1_FLASH_LITE(
@@ -71,6 +76,7 @@ enum class GeminiModelSpec(
         description = "Modelo ligero optimizado para respuestas instantáneas de mínima latencia.",
         speedRating = 5,
         reasoningRating = 4,
+        totalDailyRequests = 1500,
         fallbackAliases = listOf("gemini-flash-latest", "gemini-1.5-flash-latest")
     );
 

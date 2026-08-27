@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -69,15 +70,30 @@ import java.util.Locale
 fun ChatDrawerContent(
     sessions: List<ChatSessionEntity>,
     currentSessionId: String?,
+    currentPersona: String = "Asistente Inteligente",
     onSelectSession: (String) -> Unit,
     onNewChat: () -> Unit,
     onDeleteSession: (String) -> Unit,
     onClearAll: () -> Unit,
     onOpenSettings: () -> Unit,
+    onSelectPersona: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
     var sessionToDelete by remember { mutableStateOf<ChatSessionEntity?>(null) }
+    var showModesDialog by remember { mutableStateOf(false) }
+
+    // Diálogo completo de Selección de Modos de la IA
+    if (showModesDialog) {
+        ModesDialog(
+            currentPersona = currentPersona,
+            onSelectMode = { modeKey ->
+                onSelectPersona(modeKey)
+                showModesDialog = false
+            },
+            onDismiss = { showModesDialog = false }
+        )
+    }
 
     // Diálogo de confirmación para eliminar conversación individual
     if (sessionToDelete != null) {
@@ -224,6 +240,66 @@ fun ChatDrawerContent(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 🎭 "Modos" Button (DEBAJO de Ajustes)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { showModesDialog = true }
+                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(10.dp))
+                .testTag("drawer_modes_button"),
+            color = ObsidianCard,
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "🎭",
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Modos",
+                            color = TextPrimaryDark,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = currentPersona,
+                            color = RadiantViolet,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = RadiantViolet.copy(alpha = 0.2f),
+                    border = BorderStroke(0.5.dp, RadiantViolet.copy(alpha = 0.5f))
+                ) {
+                    Text(
+                        text = "Cambiar",
+                        color = RadiantViolet,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
 

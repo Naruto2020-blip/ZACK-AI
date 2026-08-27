@@ -1,9 +1,12 @@
 package com.example.ui.screens
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,8 +39,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
@@ -58,6 +63,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -72,6 +78,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.AttachmentActionBar
 import com.example.ui.components.ChatDrawerContent
@@ -87,6 +94,9 @@ import com.example.ui.theme.RadiantViolet
 import com.example.ui.theme.TextPrimaryDark
 import com.example.ui.theme.TextSecondaryDark
 import com.example.ui.viewmodel.ChatViewModel
+import com.example.util.AudioRecordManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -108,14 +118,30 @@ fun MainChatScreen(
     var inputText by remember { mutableStateOf("") }
     var showSettingsSheet by remember { mutableStateOf(false) }
 
-    // TTS Setup
+    // TTS Setup & Speaking State
+    var speakingMessageId by remember { mutableStateOf<String?>(null) }
     var tts: TextToSpeech? by remember { mutableStateOf(null) }
+
     DisposableEffect(Unit) {
         val textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.forLanguageTag("es-ES")
+                // Español Latino preferente
+                val latinoLocale = Locale("es", "MX")
+                val langResult = tts?.setLanguage(latinoLocale)
+                if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    tts?.language = Locale("es")
+                }
             }
         }
+        textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {}
+            override fun onDone(utteranceId: String?) {
+                coroutineScope.launch { speakingMessageId = null }
+            }
+            override fun onError(utteranceId: String?) {
+                coroutineScope.launch { speakingMessageId = null }
+            }
+        })
         tts = textToSpeech
         onDispose {
             tts?.stop()
@@ -123,7 +149,20 @@ fun MainChatScreen(
         }
     }
 
-    // Voice recognition launcher
+    // Toggle Speak response in clear Latin Spanish (Only on explicit click, never auto)
+    fun toggleSpeak(messageId: String, content: String) {
+        if (speakingMessageId == messageId) {
+            tts?.stop()
+            speakingMessageId = null
+        } else {
+            tts?.stop()
+            val cleanText = cleanMarkdownForSpeech(content)
+            speakingMessageId = messageId
+            tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, messageId)
+        }
+    }
+
+    // Voice recognition launcher (Mic / dictado de texto en el campo)
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -131,6 +170,81 @@ fun MainChatScreen(
             val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spokenText.isNullOrBlank()) {
                 inputText = spokenText
+            }
+        }
+    }
+
+    // 📤 2. ENVIAR AUDIO — Grabación de voz original sin transcribir
+    val audioRecordManager = remember { AudioRecordManager(context) }
+    var isRecordingAudio by remember { mutableStateOf(false) }
+    var recordingDurationSeconds by remember { mutableIntStateOf(0) }
+
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val started = audioRecordManager.startRecording()
+            if (started) {
+                isRecordingAudio = true
+                recordingDurationSeconds = 0
+            } else {
+                Toast.makeText(context, "No se pudo iniciar la grabación de audio", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Se requiere permiso de micrófono para enviar tu voz original", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(isRecordingAudio) {
+        if (isRecordingAudio) {
+            recordingDurationSeconds = 0
+            while (isActive && isRecordingAudio) {
+                delay(1000L)
+                recordingDurationSeconds++
+            }
+        }
+    }
+
+    fun startAudioRecording() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            val started = audioRecordManager.startRecording()
+            if (started) {
+                isRecordingAudio = true
+                recordingDurationSeconds = 0
+            } else {
+                Toast.makeText(context, "No se pudo iniciar la grabación de audio", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    fun cancelAudioRecording() {
+        audioRecordManager.cancelRecording()
+        isRecordingAudio = false
+        recordingDurationSeconds = 0
+    }
+
+    fun sendAudioRecording() {
+        coroutineScope.launch {
+            val duration = recordingDurationSeconds
+            val result = audioRecordManager.stopAndGetAudio()
+            isRecordingAudio = false
+            recordingDurationSeconds = 0
+
+            if (result != null && result.base64.isNotBlank()) {
+                viewModel.sendRawAudioMessage(
+                    audioBase64 = result.base64,
+                    mimeType = result.mimeType,
+                    durationSeconds = duration.coerceAtLeast(1)
+                )
+            } else {
+                Toast.makeText(context, "Audio demasiado breve o no guardado", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -156,6 +270,7 @@ fun MainChatScreen(
             ChatDrawerContent(
                 sessions = sessions,
                 currentSessionId = uiState.currentSessionId,
+                currentPersona = uiState.systemPersona,
                 onSelectSession = { sessionId ->
                     viewModel.selectSession(sessionId)
                     coroutineScope.launch { drawerState.close() }
@@ -174,6 +289,10 @@ fun MainChatScreen(
                 onOpenSettings = {
                     coroutineScope.launch { drawerState.close() }
                     showSettingsSheet = true
+                },
+                onSelectPersona = { persona ->
+                    viewModel.setSystemPersona(persona)
+                    coroutineScope.launch { drawerState.close() }
                 }
             )
         }
@@ -226,8 +345,9 @@ fun MainChatScreen(
                                 ChatMessageBubble(
                                     message = message,
                                     sessionTitle = uiState.currentSessionTitle,
-                                    onSpeak = { text ->
-                                        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "msg_${message.id}")
+                                    isSpeaking = speakingMessageId == message.id.toString(),
+                                    onToggleSpeak = {
+                                        toggleSpeak(message.id.toString(), message.content)
                                     }
                                 )
                             }
@@ -280,7 +400,12 @@ fun MainChatScreen(
                     onTakePhoto = { uri ->
                         viewModel.attachFileUri(uri)
                     },
-                    isGenerating = uiState.isGenerating
+                    isGenerating = uiState.isGenerating,
+                    isRecordingAudio = isRecordingAudio,
+                    recordingDurationSeconds = recordingDurationSeconds,
+                    onStartAudioRecord = { startAudioRecording() },
+                    onCancelAudioRecord = { cancelAudioRecording() },
+                    onSendAudioRecord = { sendAudioRecording() }
                 )
             }
         }
@@ -299,6 +424,16 @@ fun MainChatScreen(
             }
         )
     }
+}
+
+private fun cleanMarkdownForSpeech(text: String): String {
+    return text
+        .replace(Regex("""```[\s\S]*?```"""), " Código omitido ")
+        .replace(Regex("""`([^`]+)`"""), "$1")
+        .replace(Regex("""[*#_~>]"""), "")
+        .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
+        .replace(Regex("""https?://\S+"""), "")
+        .trim()
 }
 
 @Composable
@@ -491,104 +626,224 @@ fun ChatInputBar(
     onVoiceRecord: () -> Unit,
     onFileSelected: (android.net.Uri) -> Unit,
     onTakePhoto: (android.net.Uri) -> Unit,
-    isGenerating: Boolean
+    isGenerating: Boolean,
+    isRecordingAudio: Boolean = false,
+    recordingDurationSeconds: Int = 0,
+    onStartAudioRecord: () -> Unit = {},
+    onCancelAudioRecord: () -> Unit = {},
+    onSendAudioRecord: () -> Unit = {}
 ) {
     Surface(
         color = ObsidianBackground,
         border = androidx.compose.foundation.BorderStroke(0.5.dp, ObsidianCardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Attach File / Camera button
-            FilePickerMenu(
-                onFileSelected = onFileSelected,
-                onTakePhoto = onTakePhoto
-            )
-
-            // Voice record button
-            IconButton(
-                onClick = onVoiceRecord,
+        if (isRecordingAudio) {
+            // Live Audio Recording Interface
+            Row(
                 modifier = Modifier
-                    .size(40.dp)
-                    .testTag("voice_input_button")
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Grabar voz",
-                    tint = ElectricCyan,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(2.dp))
-
-            // Main Text Input
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = onTextChanged,
-                placeholder = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEF4444))
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Escribe o sube PDF, Word, fotos...",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 13.sp
+                        text = "Grabando voz...",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
-                },
-                maxLines = 4,
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = ObsidianCard,
-                    unfocusedContainerColor = ObsidianCard,
-                    focusedBorderColor = ElectricCyan,
-                    unfocusedBorderColor = ObsidianCardBorder,
-                    focusedTextColor = TextPrimaryDark,
-                    unfocusedTextColor = TextPrimaryDark,
-                    cursorColor = ElectricCyan
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { if (inputText.isNotBlank() && !isGenerating) onSend() }),
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("chat_input_field")
-            )
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // Send Button
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (inputText.isNotBlank() && !isGenerating) {
-                            Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))
-                        } else {
-                            Brush.linearGradient(listOf(Color(0xFF1E293B), Color(0xFF1E293B)))
-                        }
-                    )
-                    .clickable(enabled = (inputText.isNotBlank() || isGenerating.not()) && !isGenerating) {
-                        onSend()
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF831843),
+                        modifier = Modifier.padding(horizontal = 2.dp)
+                    ) {
+                        Text(
+                            text = String.format(Locale.getDefault(), "%02d:%02d", recordingDurationSeconds / 60, recordingDurationSeconds % 60),
+                            color = Color(0xFFF472B6),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
                     }
-                    .testTag("send_message_button"),
-                contentAlignment = Alignment.Center
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Cancel Audio Recording button
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF334155),
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .clickable { onCancelAudioRecord() }
+                            .testTag("cancel_audio_record_button"),
+                        contentColor = Color.White
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancelar grabación",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Send Raw Audio button
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.Unspecified,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Brush.linearGradient(listOf(Color(0xFFEC4899), RadiantViolet)))
+                            .clickable { onSendAudioRecord() }
+                            .testTag("submit_audio_record_button")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Enviar audio original",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Enviar Audio",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            // Standard Chat Input Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isGenerating) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = TextSecondaryDark
-                    )
-                } else {
+                // 1. Attach File / Camera button (📎 / ➕)
+                FilePickerMenu(
+                    onFileSelected = onFileSelected,
+                    onTakePhoto = onTakePhoto
+                )
+
+                // 2. Mic button (🎤 Dictado a texto en el campo)
+                IconButton(
+                    onClick = onVoiceRecord,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .testTag("voice_input_button")
+                ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Enviar",
-                        tint = if (inputText.isNotBlank()) ObsidianBackground else TextSecondaryDark,
-                        modifier = Modifier.size(20.dp)
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Dictar texto",
+                        tint = ElectricCyan,
+                        modifier = Modifier.size(22.dp)
                     )
+                }
+
+                // 3. 📤 ENVIAR AUDIO — PREGUNTA EN VOZ ORIGINAL (Graba y envía el audio tal cual sin transcribir)
+                IconButton(
+                    onClick = onStartAudioRecord,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .testTag("send_raw_audio_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RecordVoiceOver,
+                        contentDescription = "Enviar pregunta en voz original",
+                        tint = Color(0xFFF472B6),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(2.dp))
+
+                // Main Text Input
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = onTextChanged,
+                    placeholder = {
+                        Text(
+                            text = "Escribe o sube PDF, Word, Excel, PPT...",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 13.sp
+                        )
+                    },
+                    maxLines = 4,
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = ObsidianCard,
+                        unfocusedContainerColor = ObsidianCard,
+                        focusedBorderColor = ElectricCyan,
+                        unfocusedBorderColor = ObsidianCardBorder,
+                        focusedTextColor = TextPrimaryDark,
+                        unfocusedTextColor = TextPrimaryDark,
+                        cursorColor = ElectricCyan
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { if (inputText.isNotBlank() && !isGenerating) onSend() }),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("chat_input_field")
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Send Button
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (inputText.isNotBlank() && !isGenerating) {
+                                Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))
+                            } else {
+                                Brush.linearGradient(listOf(Color(0xFF1E293B), Color(0xFF1E293B)))
+                            }
+                        )
+                        .clickable(enabled = (inputText.isNotBlank() || isGenerating.not()) && !isGenerating) {
+                            onSend()
+                        }
+                        .testTag("send_message_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isGenerating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = TextSecondaryDark
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Enviar",
+                            tint = if (inputText.isNotBlank()) ObsidianBackground else TextSecondaryDark,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }

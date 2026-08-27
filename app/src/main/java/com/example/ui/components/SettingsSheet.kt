@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
@@ -24,6 +27,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,6 +52,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.GeminiModelSpec
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.DeepIndigo
 import com.example.ui.theme.ElectricCyan
@@ -80,31 +85,44 @@ fun SettingsSheet(
         androidx.compose.runtime.mutableStateOf(uiState.currentApiKey)
     }
     var showApiKeyInput by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showModelsDialog by remember { mutableStateOf(false) }
 
     val personas = listOf(
         PersonaOption(
-            title = "Asistente Inteligente",
-            description = "Equilibrado, servicial, conciso y preciso para todo tipo de tareas.",
+            title = "🔄 Asistente Inteligente",
+            description = "Vuelve a la IA original, sin especialidad. Es el modo por defecto.",
             icon = Icons.Default.AutoAwesome,
             accentColor = ElectricCyan
         ),
         PersonaOption(
-            title = "Programador Experto",
-            description = "Especialista en código limpio, arquitectura de software y depuración.",
-            icon = Icons.Default.Code,
-            accentColor = CyanAccent
+            title = "⚖️ Abogado",
+            description = "Redacta contratos, cartas legales, autorizaciones, renuncias, explica derechos y leyes en lenguaje claro.",
+            icon = Icons.Default.SmartToy,
+            accentColor = Color(0xFFF59E0B)
         ),
         PersonaOption(
-            title = "Razonamiento & Análisis",
-            description = "Enfoque crítico, desglose paso a paso y resolución lógica detallada.",
+            title = "👨‍⚕️ Médico / Doctor",
+            description = "Explica síntomas, da consejos de salud, explica términos médicos, cuándo ir al médico, cuidados generales.",
+            icon = Icons.Default.SmartToy,
+            accentColor = Color(0xFF10B981)
+        ),
+        PersonaOption(
+            title = "🧠 Psicólogo",
+            description = "Apoyo emocional, escucha sin juzgar, da consejos para manejo de emociones, estrés, relaciones y bienestar.",
             icon = Icons.Default.Psychology,
             accentColor = RadiantViolet
         ),
         PersonaOption(
-            title = "Redactor Creativo",
-            description = "Escritura elocuente, estilo persuasivo y textos cautivadores.",
+            title = "✍️ Redactor / Escritor",
+            description = "Escribe cartas, correos, ensayos, discursos, textos creativos, profesionales y personalizados.",
             icon = Icons.Default.Create,
-            accentColor = Color(0xFFF59E0B)
+            accentColor = Color(0xFFEC4899)
+        ),
+        PersonaOption(
+            title = "📚 Profesor / Tutor",
+            description = "Explica temas difíciles paso a paso, ayuda con tareas, resúmenes, ejercicios, prepara exámenes.",
+            icon = Icons.Default.Code,
+            accentColor = Color(0xFF3B82F6)
         )
     )
 
@@ -115,11 +133,13 @@ fun SettingsSheet(
         contentColor = TextPrimaryDark,
         dragHandle = null
     ) {
+        val scrollState = rememberScrollState()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp)
-                .padding(top = 16.dp, bottom = 28.dp)
+                .padding(top = 16.dp, bottom = 32.dp)
         ) {
             // Header Bar
             Row(
@@ -174,6 +194,72 @@ fun SettingsSheet(
             }
 
             HorizontalDivider(color = ObsidianCardBorder, modifier = Modifier.padding(bottom = 16.dp))
+
+            // =========================================================================
+            // 🤖 BOTÓN: MODELOS (Abre pantalla nueva de Modelos)
+            // =========================================================================
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { showModelsDialog = true }
+                    .testTag("open_models_screen_button"),
+                shape = RoundedCornerShape(14.dp),
+                color = ObsidianCard
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(ElectricCyan.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SmartToy,
+                                contentDescription = null,
+                                tint = ElectricCyan,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Modelos",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimaryDark
+                            )
+                            Text(
+                                text = "Ver créditos, cuotas y modelos de respaldo",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondaryDark,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Abrir Modelos",
+                        tint = TextSecondaryDark,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Section 1: ⏱️ Renovación Diaria de Cuotas + Contador de tiempo
             Surface(
@@ -379,7 +465,13 @@ fun SettingsSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 personas.forEach { persona ->
-                    val isSelected = uiState.systemPersona == persona.title
+                    val isSelected = uiState.systemPersona == persona.title ||
+                            (uiState.systemPersona.contains("Asistente") && persona.title.contains("Asistente")) ||
+                            (persona.title.contains("Abogado") && uiState.systemPersona.contains("Abogado")) ||
+                            (persona.title.contains("Médico") && uiState.systemPersona.contains("Médico")) ||
+                            (persona.title.contains("Psicólogo") && uiState.systemPersona.contains("Psicólogo")) ||
+                            (persona.title.contains("Redactor") && uiState.systemPersona.contains("Redactor")) ||
+                            (persona.title.contains("Profesor") && uiState.systemPersona.contains("Profesor"))
 
                     Surface(
                         modifier = Modifier
@@ -457,5 +549,13 @@ fun SettingsSheet(
                 }
             }
         }
+    }
+
+    // Pantalla completa de Modelos (con toda la información intacta)
+    if (showModelsDialog) {
+        ModelsScreenDialog(
+            uiState = uiState,
+            onDismiss = { showModelsDialog = false }
+        )
     }
 }
