@@ -23,7 +23,6 @@ interface GeminiApiService {
     @POST("v1beta/models/{model}:generateContent")
     suspend fun generateContent(
         @Path("model") model: String,
-        @Header("x-goog-api-key") apiKeyHeader: String,
         @Query("key") apiKeyQuery: String,
         @Body request: GenerateContentRequestDto
     ): Response<GenerateContentResponseDto>
@@ -32,7 +31,6 @@ interface GeminiApiService {
     @Streaming
     suspend fun generateContentStream(
         @Path("model") model: String,
-        @Header("x-goog-api-key") apiKeyHeader: String,
         @Query("key") apiKeyQuery: String,
         @Query("alt") alt: String = "sse",
         @Body request: GenerateContentRequestDto
@@ -52,10 +50,10 @@ object GeminiClient {
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(25, TimeUnit.SECONDS)
-            .readTimeout(50, TimeUnit.SECONDS)
-            .writeTimeout(25, TimeUnit.SECONDS)
-            .callTimeout(55, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(35, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(40, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .addInterceptor(loggingInterceptor)
             .build()

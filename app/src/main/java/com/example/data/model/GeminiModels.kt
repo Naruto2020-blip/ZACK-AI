@@ -29,10 +29,10 @@ enum class GeminiModelSpec(
         speedRating = 5,
         reasoningRating = 5,
         totalDailyRequests = 1500,
-        fallbackAliases = listOf("gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-2.0-flash")
+        fallbackAliases = listOf("gemini-3.5-flash", "gemini-2.5-flash")
     ),
     GEMINI_3_5_FLASH(
-        id = "gemini-1.5-flash-latest",
+        id = "gemini-3.5-flash",
         displayName = "Gemini 3.5 Flash",
         roleBadge = "Respaldo #1 (Alta Velocidad)",
         isPrimary = false,
@@ -41,22 +41,22 @@ enum class GeminiModelSpec(
         speedRating = 5,
         reasoningRating = 4,
         totalDailyRequests = 1500,
-        fallbackAliases = listOf("gemini-flash-latest", "gemini-1.5-flash")
+        fallbackAliases = listOf("gemini-flash-latest", "gemini-2.5-flash")
     ),
     GEMINI_3_7_FLASH(
-        id = "gemini-1.5-pro-latest",
-        displayName = "Gemini 3.7 Flash",
-        roleBadge = "Respaldo #2 (Flagship / Razonamiento)",
+        id = "gemini-2.5-flash",
+        displayName = "Gemini 2.5 Flash",
+        roleBadge = "Respaldo #2 (Estable / Multimodal)",
         isPrimary = false,
         orderIndex = 3,
-        description = "Máximo razonamiento híbrido y análisis de última generación.",
+        description = "Alta estabilidad y soporte robusto para audio, imágenes y documentos.",
         speedRating = 5,
         reasoningRating = 5,
         totalDailyRequests = 1000,
-        fallbackAliases = listOf("gemini-pro-latest", "gemini-flash-latest")
+        fallbackAliases = listOf("gemini-3.5-flash", "gemini-flash-latest")
     ),
     GEMINI_3_1_PRO(
-        id = "gemini-pro-latest",
+        id = "gemini-3.1-pro-preview",
         displayName = "Gemini 3.1 Pro",
         roleBadge = "Respaldo #3 (Pro / Razonamiento Complejo)",
         isPrimary = false,
@@ -65,10 +65,10 @@ enum class GeminiModelSpec(
         speedRating = 4,
         reasoningRating = 5,
         totalDailyRequests = 1000,
-        fallbackAliases = listOf("gemini-1.5-pro-latest", "gemini-flash-latest")
+        fallbackAliases = listOf("gemini-3.5-flash", "gemini-flash-latest")
     ),
     GEMINI_3_1_FLASH_LITE(
-        id = "gemini-1.5-flash-8b-latest",
+        id = "gemini-3.1-flash-lite-preview",
         displayName = "Gemini 3.1 Flash-Lite",
         roleBadge = "Respaldo #4 (Baja Latencia)",
         isPrimary = false,
@@ -77,7 +77,7 @@ enum class GeminiModelSpec(
         speedRating = 5,
         reasoningRating = 4,
         totalDailyRequests = 1500,
-        fallbackAliases = listOf("gemini-flash-latest", "gemini-1.5-flash-latest")
+        fallbackAliases = listOf("gemini-flash-latest", "gemini-3.5-flash")
     );
 
     companion object {

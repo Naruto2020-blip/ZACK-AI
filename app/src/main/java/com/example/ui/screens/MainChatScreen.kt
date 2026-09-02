@@ -316,7 +316,6 @@ fun MainChatScreen(
                 ChatTopBar(
                     title = "ZACK AI",
                     onMenuClick = { coroutineScope.launch { drawerState.open() } },
-                    onSettingsClick = { showSettingsSheet = true },
                     onNewChatClick = { viewModel.createNewSession() }
                 )
 
@@ -440,7 +439,6 @@ private fun cleanMarkdownForSpeech(text: String): String {
 fun ChatTopBar(
     title: String,
     onMenuClick: () -> Unit,
-    onSettingsClick: () -> Unit,
     onNewChatClick: () -> Unit
 ) {
     Surface(
@@ -475,28 +473,15 @@ fun ChatTopBar(
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = onSettingsClick,
-                    modifier = Modifier.testTag("settings_top_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Ajustes",
-                        tint = CyanAccent
-                    )
-                }
-
-                IconButton(
-                    onClick = onNewChatClick,
-                    modifier = Modifier.testTag("new_chat_top_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Nuevo Chat",
-                        tint = ElectricCyan
-                    )
-                }
+            IconButton(
+                onClick = onNewChatClick,
+                modifier = Modifier.testTag("new_chat_top_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Nuevo Chat",
+                    tint = ElectricCyan
+                )
             }
         }
     }

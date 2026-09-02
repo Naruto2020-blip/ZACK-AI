@@ -103,17 +103,28 @@ class CascadeEngine(
         // Prepare request body with history
         val contents = mutableListOf<ContentDto>()
         
-        // Add last turns for context (limit to last 10 messages for token efficiency)
-        val recentHistory = history.takeLast(10)
-        recentHistory.forEach { msg ->
-            if (msg.role == "user" || msg.role == "model") {
+        // Clean history: exclude error messages and ensure alternating user/model roles
+        val validHistory = history
+            .filter { !it.isError && it.content.isNotBlank() && !it.content.startsWith("⏱️") && !it.content.startsWith("⚠️") }
+            .takeLast(8)
+
+        var lastRole: String? = null
+        for (msg in validHistory) {
+            val role = if (msg.role == "user") "user" else "model"
+            if (role != lastRole) {
                 contents.add(
                     ContentDto(
-                        role = msg.role,
+                        role = role,
                         parts = listOf(PartDto(text = msg.content))
                     )
                 )
+                lastRole = role
             }
+        }
+        
+        // Ensure that if the last history message was user, remove it so the new user prompt is the active turn
+        if (contents.isNotEmpty() && contents.last().role == "user") {
+            contents.removeAt(contents.size - 1)
         }
         
         // Build parts for current prompt
@@ -183,30 +194,38 @@ class CascadeEngine(
             for (endpoint in modelEndpoints) {
                 try {
                     Log.d(tag, "Attempting request with model endpoint: $endpoint")
-                    var response = apiService.generateContent(
-                        model = endpoint,
-                        apiKeyHeader = apiKey,
-                        apiKeyQuery = apiKey,
-                        request = request
-                    )
+                    val response = withTimeoutOrNull(15_000L) {
+                        apiService.generateContent(
+                            model = endpoint,
+                            apiKeyQuery = apiKey,
+                            request = request
+                        )
+                    }
+
+                    if (response == null) {
+                        failureReason = "Tiempo de espera individual agotado (15s)"
+                        continue
+                    }
 
                     httpCode = response.code()
 
                     // Quick retry on 503 (temporary network spike/service unavailable)
-                    if (httpCode == 503) {
+                    val finalResponse = if (httpCode == 503) {
                         Log.w(tag, "Model $endpoint returned 503 (Saturación), retrying once...")
-                        kotlinx.coroutines.delay(400L)
-                        response = apiService.generateContent(
-                            model = endpoint,
-                            apiKeyHeader = apiKey,
-                            apiKeyQuery = apiKey,
-                            request = request
-                        )
-                        httpCode = response.code()
-                    }
+                        kotlinx.coroutines.delay(300L)
+                        withTimeoutOrNull(10_000L) {
+                            apiService.generateContent(
+                                model = endpoint,
+                                apiKeyQuery = apiKey,
+                                request = request
+                            )
+                        } ?: response
+                    } else response
 
-                    if (response.isSuccessful) {
-                        val body = response.body()
+                    httpCode = finalResponse.code()
+
+                    if (finalResponse.isSuccessful) {
+                        val body = finalResponse.body()
                         val text = body?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
                         if (!text.isNullOrBlank()) {
                             responseText = text
@@ -216,26 +235,27 @@ class CascadeEngine(
                             failureReason = "Respuesta vacía del modelo"
                         }
                     } else {
-                        val errorBody = response.errorBody()?.string() ?: ""
+                        val errorBody = finalResponse.errorBody()?.string() ?: ""
                         Log.w(tag, "Model $endpoint returned error $httpCode: $errorBody")
                         
-                        // If it's a 400, retry once with simplified request
-                        if (httpCode == 400 && (request.systemInstruction != null || request.generationConfig != null)) {
+                        // If it's a 400, retry once with simplified request (only user prompt)
+                        if (httpCode == 400 && (request.systemInstruction != null || contents.size > 1)) {
                             val simpleRequest = GenerateContentRequestDto(
                                 contents = listOf(
                                     ContentDto(
                                         role = "user",
-                                        parts = listOf(PartDto(text = newPrompt))
+                                        parts = currentParts
                                     )
                                 )
                             )
-                            val retryResponse = apiService.generateContent(
-                                model = endpoint,
-                                apiKeyHeader = apiKey,
-                                apiKeyQuery = apiKey,
-                                request = simpleRequest
-                            )
-                            if (retryResponse.isSuccessful) {
+                            val retryResponse = withTimeoutOrNull(10_000L) {
+                                apiService.generateContent(
+                                    model = endpoint,
+                                    apiKeyQuery = apiKey,
+                                    request = simpleRequest
+                                )
+                            }
+                            if (retryResponse != null && retryResponse.isSuccessful) {
                                 val retryText = retryResponse.body()?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
                                 if (!retryText.isNullOrBlank()) {
                                     responseText = retryText
@@ -256,7 +276,7 @@ class CascadeEngine(
                                         "Clave de API inválida o expirada (HTTP 400)"
                                     errorBody.contains("User location", ignoreCase = true) ->
                                         "Región geográfica no soportada (HTTP 400)"
-                                    else -> "Parámetro o payload no soportado (HTTP 400)"
+                                    else -> "Parámetro o formato no soportado (HTTP 400)"
                                 }
                             }
                             httpCode == 403 -> "Acceso denegado o permisos insuficientes (HTTP 403)"
@@ -388,7 +408,6 @@ class CascadeEngine(
             try {
                 val response = apiService.generateContent(
                     model = ep,
-                    apiKeyHeader = apiKey,
                     apiKeyQuery = apiKey,
                     request = request
                 )
