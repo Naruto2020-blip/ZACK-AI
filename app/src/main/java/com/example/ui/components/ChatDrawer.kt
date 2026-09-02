@@ -22,9 +22,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,6 +38,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,6 +62,7 @@ import com.example.data.local.ChatSessionEntity
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.DeepIndigo
 import com.example.ui.theme.ElectricCyan
+import com.example.ui.theme.EmeraldGreen
 import com.example.ui.theme.ObsidianBackground
 import com.example.ui.theme.ObsidianCard
 import com.example.ui.theme.ObsidianCardBorder
@@ -77,11 +85,21 @@ fun ChatDrawerContent(
     onClearAll: () -> Unit,
     onOpenSettings: () -> Unit,
     onSelectPersona: (String) -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
+    onOpenTasks: () -> Unit = {},
+    onOpenDocTools: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
     var sessionToDelete by remember { mutableStateOf<ChatSessionEntity?>(null) }
+    var showClearAllConfirm by remember { mutableStateOf(false) }
     var showModesDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val displayedSessions = remember(sessions, searchQuery) {
+        if (searchQuery.isBlank()) sessions
+        else sessions.filter { it.title.contains(searchQuery, ignoreCase = true) }
+    }
 
     // Diálogo completo de Selección de Modos de la IA
     if (showModesDialog) {
@@ -133,6 +151,45 @@ fun ChatDrawerContent(
                     onClick = { sessionToDelete = null },
                     modifier = Modifier.testTag("cancel_delete_button")
                 ) {
+                    Text("Cancelar", color = TextSecondaryDark)
+                }
+            },
+            containerColor = ObsidianCard,
+            shape = RoundedCornerShape(14.dp)
+        )
+    }
+
+    // Diálogo de confirmación para borrar todo el historial
+    if (showClearAllConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearAllConfirm = false },
+            title = {
+                Text(
+                    text = "¿Borrar todo el historial?",
+                    color = TextPrimaryDark,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Se eliminarán todas tus conversaciones guardadas. Esta acción no se puede deshacer.",
+                    color = TextSecondaryDark,
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearAllConfirm = false
+                        onClearAll()
+                    }
+                ) {
+                    Text("Borrar todo", color = RoseRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearAllConfirm = false }) {
                     Text("Cancelar", color = TextSecondaryDark)
                 }
             },
@@ -303,7 +360,112 @@ fun ChatDrawerContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ⭐ Favoritos Shortcut
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onOpenFavorites() }
+                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(10.dp))
+                .testTag("drawer_favorites_button"),
+            color = ObsidianCard,
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = "Favoritos",
+                    tint = com.example.ui.theme.AmberGold,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Mensajes Favoritos",
+                    color = TextPrimaryDark,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 🔔 Recordatorios y Tareas Shortcut
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onOpenTasks() }
+                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(10.dp))
+                .testTag("drawer_tasks_button"),
+            color = ObsidianCard,
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.NotificationsActive,
+                    contentDescription = "Recordatorios y Tareas",
+                    tint = EmeraldGreen,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Recordatorios y Tareas",
+                    color = TextPrimaryDark,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 📄 Herramientas de Documentos Shortcut
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onOpenDocTools() }
+                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(10.dp))
+                .testTag("drawer_doc_tools_button"),
+            color = ObsidianCard,
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoFixHigh,
+                    contentDescription = "Herramientas de Documentos",
+                    tint = ElectricCyan,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Herramientas de Documentos",
+                    color = TextPrimaryDark,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         Text(
             text = "Historial de Conversaciones",
@@ -312,10 +474,55 @@ fun ChatDrawerContent(
             fontWeight = FontWeight.SemiBold
         )
 
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // 🔍 Buscador de chats por palabras clave
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Buscar en chats...", color = Color(0xFF64748B), fontSize = 12.sp) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Buscar",
+                    tint = Color(0xFF64748B),
+                    modifier = Modifier.size(16.dp)
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotBlank()) {
+                    IconButton(
+                        onClick = { searchQuery = "" },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Limpiar búsqueda",
+                            tint = Color(0xFF64748B),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(10.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = ObsidianCard,
+                unfocusedContainerColor = ObsidianCard,
+                focusedBorderColor = ElectricCyan,
+                unfocusedBorderColor = ObsidianCardBorder,
+                focusedTextColor = TextPrimaryDark,
+                unfocusedTextColor = TextPrimaryDark
+            )
+        )
+
         Spacer(modifier = Modifier.height(8.dp))
 
         // Sessions list
-        if (sessions.isEmpty()) {
+        if (displayedSessions.isEmpty()) {
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -324,9 +531,10 @@ fun ChatDrawerContent(
                 contentAlignment = Alignment.TopCenter
             ) {
                 Text(
-                    text = "No hay conversaciones",
+                    text = if (searchQuery.isNotBlank()) "No se encontraron chats con '$searchQuery'" else "No hay conversaciones",
                     color = Color(0xFF475569),
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
         } else {
@@ -336,7 +544,7 @@ fun ChatDrawerContent(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                items(sessions, key = { it.id }) { session ->
+                items(displayedSessions, key = { it.id }) { session ->
                     val isSelected = session.id == currentSessionId
                     Surface(
                         modifier = Modifier
@@ -404,10 +612,10 @@ fun ChatDrawerContent(
 
         HorizontalDivider(color = ObsidianCardBorder, modifier = Modifier.padding(vertical = 8.dp))
 
-        // Clear All Sessions
+        // Clear All Sessions (con confirmación segura)
         if (sessions.isNotEmpty()) {
             TextButton(
-                onClick = onClearAll,
+                onClick = { showClearAllConfirm = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(

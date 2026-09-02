@@ -39,6 +39,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
@@ -83,8 +84,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.AttachmentActionBar
 import com.example.ui.components.ChatDrawerContent
 import com.example.ui.components.ChatMessageBubble
+import com.example.ui.components.DocumentToolsDialog
+import com.example.ui.components.FavoritesSheet
 import com.example.ui.components.FilePickerMenu
 import com.example.ui.components.SettingsSheet
+import com.example.ui.components.TasksAndRemindersSheet
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.ObsidianBackground
@@ -108,6 +112,9 @@ fun MainChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val favoriteMessages by viewModel.favoriteMessages.collectAsStateWithLifecycle()
+    val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -117,6 +124,9 @@ fun MainChatScreen(
 
     var inputText by remember { mutableStateOf("") }
     var showSettingsSheet by remember { mutableStateOf(false) }
+    var showFavoritesSheet by remember { mutableStateOf(false) }
+    var showTasksSheet by remember { mutableStateOf(false) }
+    var showDocToolsDialog by remember { mutableStateOf(false) }
 
     // TTS Setup & Speaking State
     var speakingMessageId by remember { mutableStateOf<String?>(null) }
@@ -293,6 +303,18 @@ fun MainChatScreen(
                 onSelectPersona = { persona ->
                     viewModel.setSystemPersona(persona)
                     coroutineScope.launch { drawerState.close() }
+                },
+                onOpenFavorites = {
+                    coroutineScope.launch { drawerState.close() }
+                    showFavoritesSheet = true
+                },
+                onOpenTasks = {
+                    coroutineScope.launch { drawerState.close() }
+                    showTasksSheet = true
+                },
+                onOpenDocTools = {
+                    coroutineScope.launch { drawerState.close() }
+                    showDocToolsDialog = true
                 }
             )
         }
@@ -316,7 +338,8 @@ fun MainChatScreen(
                 ChatTopBar(
                     title = "ZACK AI",
                     onMenuClick = { coroutineScope.launch { drawerState.open() } },
-                    onNewChatClick = { viewModel.createNewSession() }
+                    onNewChatClick = { viewModel.createNewSession() },
+                    onDocToolsClick = { showDocToolsDialog = true }
                 )
 
                 // Chat Messages List or Empty Starter State
@@ -347,6 +370,9 @@ fun MainChatScreen(
                                     isSpeaking = speakingMessageId == message.id.toString(),
                                     onToggleSpeak = {
                                         toggleSpeak(message.id.toString(), message.content)
+                                    },
+                                    onToggleFavorite = { id, isFav ->
+                                        viewModel.toggleFavorite(id, isFav)
                                     }
                                 )
                             }
@@ -420,6 +446,55 @@ fun MainChatScreen(
             },
             onSaveApiKey = { newKey ->
                 viewModel.saveApiKey(newKey)
+            },
+            currentThemeMode = themeMode,
+            onSetThemeMode = { mode ->
+                viewModel.setThemeMode(mode)
+            }
+        )
+    }
+
+    // ⭐ Favorites Bottom Sheet Modal
+    if (showFavoritesSheet) {
+        FavoritesSheet(
+            favorites = favoriteMessages,
+            onToggleFavorite = { msgId, isFav ->
+                viewModel.toggleFavorite(msgId, isFav)
+            },
+            onDismiss = { showFavoritesSheet = false }
+        )
+    }
+
+    // 🔔 Tasks & Reminders Bottom Sheet Modal
+    if (showTasksSheet) {
+        TasksAndRemindersSheet(
+            tasks = allTasks,
+            onDismiss = { showTasksSheet = false },
+            onAddTask = { title, reminderTime ->
+                viewModel.addTask(title, reminderTime)
+            },
+            onToggleTask = { task ->
+                viewModel.toggleTask(task)
+            },
+            onDeleteTask = { taskId ->
+                viewModel.deleteTask(taskId)
+            },
+            onClearCompleted = {
+                viewModel.clearCompletedTasks()
+            }
+        )
+    }
+
+    // 📄 Complete Document Tools Dialog (Fill PDF, Summarize, Spellcheck, Translate, Compress, Merge/Split)
+    if (showDocToolsDialog) {
+        DocumentToolsDialog(
+            onDismiss = { showDocToolsDialog = false },
+            onSendAiPrompt = { prompt, uri ->
+                showDocToolsDialog = false
+                if (uri != null) {
+                    viewModel.attachFileUri(uri)
+                }
+                viewModel.sendMessage(prompt)
             }
         )
     }
@@ -439,7 +514,8 @@ private fun cleanMarkdownForSpeech(text: String): String {
 fun ChatTopBar(
     title: String,
     onMenuClick: () -> Unit,
-    onNewChatClick: () -> Unit
+    onNewChatClick: () -> Unit,
+    onDocToolsClick: () -> Unit = {}
 ) {
     Surface(
         color = ObsidianBackground,
@@ -473,15 +549,28 @@ fun ChatTopBar(
                 )
             }
 
-            IconButton(
-                onClick = onNewChatClick,
-                modifier = Modifier.testTag("new_chat_top_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Nuevo Chat",
-                    tint = ElectricCyan
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onDocToolsClick,
+                    modifier = Modifier.testTag("top_doc_tools_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoFixHigh,
+                        contentDescription = "Herramientas de Documentos",
+                        tint = ElectricCyan
+                    )
+                }
+
+                IconButton(
+                    onClick = onNewChatClick,
+                    modifier = Modifier.testTag("new_chat_top_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Nuevo Chat",
+                        tint = ElectricCyan
+                    )
+                }
             }
         }
     }

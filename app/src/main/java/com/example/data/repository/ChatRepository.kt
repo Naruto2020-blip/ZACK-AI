@@ -4,6 +4,7 @@ import com.example.data.local.ChatDao
 import com.example.data.local.ChatMessageEntity
 import com.example.data.local.ChatSessionEntity
 import com.example.data.local.ModelQuotaRecordEntity
+import com.example.data.local.ReminderTaskEntity
 import com.example.data.model.GeminiModelSpec
 import com.example.data.model.QuotaResetHelper
 import kotlinx.coroutines.flow.Flow
@@ -12,6 +13,50 @@ import java.util.UUID
 class ChatRepository(private val chatDao: ChatDao) {
 
     val allSessions: Flow<List<ChatSessionEntity>> = chatDao.getAllSessions()
+    val favoriteMessages: Flow<List<ChatMessageEntity>> = chatDao.getFavoriteMessages()
+    val allTasks: Flow<List<ReminderTaskEntity>> = chatDao.getAllTasks()
+
+    fun searchSessions(query: String): Flow<List<ChatSessionEntity>> {
+        return chatDao.searchSessions(query)
+    }
+
+    suspend fun toggleMessageFavorite(messageId: Long, isFavorite: Boolean) {
+        chatDao.updateMessageFavorite(messageId, isFavorite)
+    }
+
+    suspend fun setMessageFavorite(messageId: Long, isFavorite: Boolean) {
+        chatDao.updateMessageFavorite(messageId, isFavorite)
+    }
+
+    suspend fun insertTask(task: ReminderTaskEntity): Long {
+        return chatDao.insertTask(task)
+    }
+
+    suspend fun insertTask(title: String, reminderDateTime: Long? = null): Long {
+        val task = ReminderTaskEntity(
+            title = title,
+            reminderDateTime = reminderDateTime,
+            createdAt = System.currentTimeMillis(),
+            isCompleted = false
+        )
+        return chatDao.insertTask(task)
+    }
+
+    suspend fun updateTask(task: ReminderTaskEntity) {
+        chatDao.updateTask(task)
+    }
+
+    suspend fun updateTaskCompleted(taskId: Long, isCompleted: Boolean) {
+        chatDao.updateTaskCompleted(taskId, isCompleted)
+    }
+
+    suspend fun deleteTask(id: Long) {
+        chatDao.deleteTaskById(id)
+    }
+
+    suspend fun clearCompletedTasks() {
+        chatDao.clearCompletedTasks()
+    }
 
     fun getMessagesForSession(sessionId: String): Flow<List<ChatMessageEntity>> {
         return chatDao.getMessagesForSession(sessionId)

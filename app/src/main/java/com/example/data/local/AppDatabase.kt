@@ -9,9 +9,10 @@ import androidx.room.RoomDatabase
     entities = [
         ChatSessionEntity::class,
         ChatMessageEntity::class,
+        ReminderTaskEntity::class,
         ModelQuotaRecordEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

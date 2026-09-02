@@ -78,7 +78,9 @@ fun SettingsSheet(
     uiState: ChatUiState,
     onDismiss: () -> Unit,
     onSetPersona: (String) -> Unit,
-    onSaveApiKey: ((String) -> Unit)? = null
+    onSaveApiKey: ((String) -> Unit)? = null,
+    currentThemeMode: String = "dark",
+    onSetThemeMode: (String) -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var apiKeyInput by androidx.compose.runtime.remember(uiState.currentApiKey) {
@@ -256,6 +258,77 @@ fun SettingsSheet(
                         tint = TextSecondaryDark,
                         modifier = Modifier.size(22.dp)
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // =========================================================================
+            // 🌙 MODO DE APARIENCIA: Oscuro / Claro / Seguir sistema
+            // =========================================================================
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(14.dp),
+                color = ObsidianCard
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "🌙 Modo de Apariencia",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimaryDark
+                    )
+                    Text(
+                        text = "Selecciona el tema visual de la aplicación. Se guarda automáticamente.",
+                        color = TextSecondaryDark,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val themeOptions = listOf(
+                            Triple("dark", "Modo Oscuro", "🌙"),
+                            Triple("light", "Modo Claro", "☀️"),
+                            Triple("system", "Sistema", "📱")
+                        )
+
+                        themeOptions.forEach { (mode, label, emoji) ->
+                            val isSelected = currentThemeMode == mode
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { onSetThemeMode(mode) }
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) ElectricCyan else ObsidianCardBorder,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ),
+                                color = if (isSelected) ElectricCyan.copy(alpha = 0.15f) else Color(0xFF0F172A),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(text = emoji, fontSize = 18.sp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = label,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) ElectricCyan else TextSecondaryDark,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

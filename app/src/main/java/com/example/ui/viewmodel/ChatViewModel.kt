@@ -27,8 +27,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 import android.net.Uri
+import com.example.data.local.ReminderTaskEntity
 import com.example.util.FileProcessor
 import com.example.util.ProcessedAttachment
+import kotlinx.coroutines.flow.combine
 
 data class ChatUiState(
     val currentSessionId: String? = null,
@@ -64,7 +66,37 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     )
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    private val prefs = application.getSharedPreferences("chat_prefs", Application.MODE_PRIVATE)
+
+    private val _themeMode = MutableStateFlow(prefs.getString("theme_mode", "dark") ?: "dark")
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
     val sessions: StateFlow<List<ChatSessionEntity>> = repository.allSessions
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val searchQuery = MutableStateFlow("")
+
+    val filteredSessions: StateFlow<List<ChatSessionEntity>> = combine(sessions, searchQuery) { list, query ->
+        if (query.isBlank()) list
+        else list.filter { it.title.contains(query, ignoreCase = true) }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val favoriteMessages: StateFlow<List<ChatMessageEntity>> = repository.favoriteMessages
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val allTasks: StateFlow<List<ReminderTaskEntity>> = repository.allTasks
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -292,6 +324,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 content = displayMessage
             )
 
+            // Natural language auto-task / reminder detection
+            val lowerPrompt = rawPrompt.lowercase()
+            if (lowerPrompt.startsWith("recuérdame") || lowerPrompt.startsWith("recuerdame") ||
+                lowerPrompt.startsWith("crear recordatorio") || lowerPrompt.startsWith("recordatorio") ||
+                lowerPrompt.startsWith("crear tarea") || lowerPrompt.startsWith("nueva tarea")
+            ) {
+                val taskTitle = rawPrompt
+                    .replace(Regex("^(recuérdame|recuerdame|crear recordatorio|recordatorio:|crear tarea|nueva tarea)\\s*(que|de|:)?\\s*", RegexOption.IGNORE_CASE), "")
+                    .trim()
+                if (taskTitle.isNotBlank()) {
+                    repository.insertTask(taskTitle)
+                }
+            }
+
             // Prepare prompt content: if text was extracted from docx/txt/pdf, append it directly into the prompt
             val fullPromptForModel = if (currentAttached != null && !currentAttached.extractedText.isNullOrBlank()) {
                 """
@@ -454,5 +500,44 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearSnackbar() {
         _uiState.value = _uiState.value.copy(snackbarMessage = null)
+    }
+
+    fun setThemeMode(mode: String) {
+        _themeMode.value = mode
+        prefs.edit().putString("theme_mode", mode).apply()
+    }
+
+    fun toggleFavorite(messageId: Long, isFavorite: Boolean) {
+        viewModelScope.launch {
+            repository.setMessageFavorite(messageId, isFavorite)
+        }
+    }
+
+    fun setSearchQuery(query: String) {
+        searchQuery.value = query
+    }
+
+    fun addTask(title: String, reminderDateTime: Long? = null) {
+        viewModelScope.launch {
+            repository.insertTask(title, reminderDateTime)
+        }
+    }
+
+    fun toggleTask(task: ReminderTaskEntity) {
+        viewModelScope.launch {
+            repository.updateTaskCompleted(task.id, !task.isCompleted)
+        }
+    }
+
+    fun deleteTask(taskId: Long) {
+        viewModelScope.launch {
+            repository.deleteTask(taskId)
+        }
+    }
+
+    fun clearCompletedTasks() {
+        viewModelScope.launch {
+            repository.clearCompletedTasks()
+        }
     }
 }

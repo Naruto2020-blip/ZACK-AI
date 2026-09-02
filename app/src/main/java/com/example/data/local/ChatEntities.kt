@@ -37,7 +37,18 @@ data class ChatMessageEntity(
     val wasCascaded: Boolean = false,
     val cascadeReason: String? = null,
     val latencyMs: Long = 0L,
-    val isError: Boolean = false
+    val isError: Boolean = false,
+    val isFavorite: Boolean = false
+)
+
+@Entity(tableName = "reminder_tasks")
+data class ReminderTaskEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val description: String? = null,
+    val reminderDateTime: Long? = null,
+    val isCompleted: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "model_quota_records")

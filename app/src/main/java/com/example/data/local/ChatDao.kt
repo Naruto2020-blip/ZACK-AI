@@ -48,6 +48,36 @@ interface ChatDao {
     @Query("DELETE FROM chat_messages")
     suspend fun clearAllMessages()
 
+    // --- Favorites ---
+    @Query("UPDATE chat_messages SET isFavorite = :isFavorite WHERE id = :messageId")
+    suspend fun updateMessageFavorite(messageId: Long, isFavorite: Boolean)
+
+    @Query("SELECT * FROM chat_messages WHERE isFavorite = 1 ORDER BY timestamp DESC")
+    fun getFavoriteMessages(): Flow<List<ChatMessageEntity>>
+
+    // --- Search Sessions ---
+    @Query("SELECT * FROM chat_sessions WHERE id IN (SELECT DISTINCT sessionId FROM chat_messages) AND (title LIKE '%' || :query || '%' OR id IN (SELECT sessionId FROM chat_messages WHERE content LIKE '%' || :query || '%')) ORDER BY updatedAt DESC")
+    fun searchSessions(query: String): Flow<List<ChatSessionEntity>>
+
+    // --- Tasks & Reminders ---
+    @Query("SELECT * FROM reminder_tasks ORDER BY isCompleted ASC, reminderDateTime ASC, createdAt DESC")
+    fun getAllTasks(): Flow<List<ReminderTaskEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTask(task: ReminderTaskEntity): Long
+
+    @Update
+    suspend fun updateTask(task: ReminderTaskEntity)
+
+    @Query("UPDATE reminder_tasks SET isCompleted = :isCompleted WHERE id = :id")
+    suspend fun updateTaskCompleted(id: Long, isCompleted: Boolean)
+
+    @Query("DELETE FROM reminder_tasks WHERE id = :id")
+    suspend fun deleteTaskById(id: Long)
+
+    @Query("DELETE FROM reminder_tasks WHERE isCompleted = 1")
+    suspend fun clearCompletedTasks()
+
     // --- Quota & Health Tracking ---
     @Query("SELECT * FROM model_quota_records WHERE dateUtc = :dateUtc")
     fun getQuotaRecordsForDate(dateUtc: String): Flow<List<ModelQuotaRecordEntity>>

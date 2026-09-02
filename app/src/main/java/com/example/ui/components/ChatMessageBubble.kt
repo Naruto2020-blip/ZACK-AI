@@ -83,6 +83,9 @@ import com.example.util.ExportFormat
 import android.graphics.Bitmap
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import com.example.util.DocumentSignatureDetector
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -98,7 +101,8 @@ fun ChatMessageBubble(
     isSpeaking: Boolean = false,
     onToggleSpeak: () -> Unit = { onSpeak(message.content) },
     modifier: Modifier = Modifier,
-    sessionTitle: String? = null
+    sessionTitle: String? = null,
+    onToggleFavorite: (Long, Boolean) -> Unit = { _, _ -> }
 ) {
     val isUser = message.role == "user"
     val context = LocalContext.current
@@ -106,6 +110,7 @@ fun ChatMessageBubble(
     var isCopied by remember { mutableStateOf(false) }
     var showCascadeDetails by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
+    var showShareSheet by remember { mutableStateOf(false) }
     var isExporting by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -457,12 +462,54 @@ fun ChatMessageBubble(
                                         )
                                     }
                                 }
+
+                                // ⭐ Botón de Favorito
+                                if (!message.isError && message.content.isNotBlank()) {
+                                    IconButton(
+                                        onClick = { onToggleFavorite(message.id, !message.isFavorite) },
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .testTag("favorite_button_${message.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = if (message.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                                            contentDescription = if (message.isFavorite) "Quitar de favoritos" else "Guardar en favoritos",
+                                            tint = if (message.isFavorite) AmberGold else TextSecondaryDark,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+                                }
+
+                                // 📤 Botón de Compartir (WhatsApp, Correo, Portapapeles)
+                                if (!message.isError && message.content.isNotBlank()) {
+                                    IconButton(
+                                        onClick = { showShareSheet = true },
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .testTag("share_message_button_${message.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = "Compartir respuesta",
+                                            tint = TextSecondaryDark,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    // Modal Sheet de Compartir
+    if (showShareSheet) {
+        ShareMessageSheet(
+            content = message.content,
+            onDismiss = { showShareSheet = false }
+        )
     }
 
     // Modal Bottom Sheet with the 4 export formats
