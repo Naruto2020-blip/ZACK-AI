@@ -9,6 +9,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -17,23 +18,23 @@ import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
     primary = ElectricCyan,
-    onPrimary = ObsidianBackground,
-    primaryContainer = ObsidianCard,
+    onPrimary = DarkBackground,
+    primaryContainer = DarkCard,
     onPrimaryContainer = ElectricCyan,
     secondary = RadiantViolet,
-    onSecondary = ObsidianBackground,
+    onSecondary = DarkBackground,
     secondaryContainer = DeepIndigo,
-    onSecondaryContainer = TextPrimaryDark,
+    onSecondaryContainer = DarkTextPrimary,
     tertiary = NeonPink,
-    background = ObsidianBackground,
-    onBackground = TextPrimaryDark,
-    surface = ObsidianSurface,
-    onSurface = TextPrimaryDark,
-    surfaceVariant = ObsidianCard,
-    onSurfaceVariant = TextSecondaryDark,
-    outline = ObsidianCardBorder,
+    background = DarkBackground,
+    onBackground = DarkTextPrimary,
+    surface = DarkSurface,
+    onSurface = DarkTextPrimary,
+    surfaceVariant = DarkCard,
+    onSurfaceVariant = DarkTextSecondary,
+    outline = DarkCardBorder,
     error = RoseRed,
-    onError = TextPrimaryDark
+    onError = DarkTextPrimary
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -47,11 +48,11 @@ private val LightColorScheme = lightColorScheme(
     onSecondaryContainer = RadiantViolet,
     tertiary = NeonPink,
     background = LightBackground,
-    onBackground = TextPrimaryLight,
+    onBackground = LightTextPrimary,
     surface = LightSurface,
-    onSurface = TextPrimaryLight,
+    onSurface = LightTextPrimary,
     surfaceVariant = LightCard,
-    onSurfaceVariant = TextSecondaryLight,
+    onSurfaceVariant = LightTextSecondary,
     outline = LightCardBorder,
     error = RoseRed,
     onError = LightSurface
@@ -59,7 +60,7 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun MyApplicationTheme(
-    darkTheme: Boolean = true, // Default to dark theme for premium AI atmosphere
+    darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -83,9 +84,13 @@ fun MyApplicationTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalAppIsDark provides darkTheme
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }

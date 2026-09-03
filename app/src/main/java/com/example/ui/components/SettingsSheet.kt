@@ -53,16 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.GeminiModelSpec
-import com.example.ui.theme.CyanAccent
-import com.example.ui.theme.DeepIndigo
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianCardBorder
-import com.example.ui.theme.RadiantViolet
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.*
 import com.example.ui.viewmodel.ChatUiState
 
 private data class PersonaOption(
@@ -309,7 +300,7 @@ fun SettingsSheet(
                                         color = if (isSelected) ElectricCyan else ObsidianCardBorder,
                                         shape = RoundedCornerShape(10.dp)
                                     ),
-                                color = if (isSelected) ElectricCyan.copy(alpha = 0.15f) else Color(0xFF0F172A),
+                                color = if (isSelected) ElectricCyan.copy(alpha = 0.15f) else if (isAppDark()) Color(0xFF0F172A) else ObsidianSubtle,
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Column(
@@ -351,7 +342,7 @@ fun SettingsSheet(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF0F2B1D)),
+                                .background(if (isAppDark()) Color(0xFF0F2B1D) else EmeraldGreen.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -383,7 +374,7 @@ fun SettingsSheet(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF0B1320),
+                        color = if (isAppDark()) Color(0xFF0B1320) else ObsidianSubtle,
                         border = androidx.compose.foundation.BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.3f))
                     ) {
                         Row(
@@ -439,7 +430,7 @@ fun SettingsSheet(
                                 modifier = Modifier
                                     .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF1E1E38)),
+                                    .background(if (isAppDark()) Color(0xFF1E1E38) else DeepIndigo.copy(alpha = 0.15f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -506,7 +497,7 @@ fun SettingsSheet(
                                 },
                                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                                     containerColor = ElectricCyan,
-                                    contentColor = ObsidianBackground
+                                    contentColor = Color(0xFF090D16)
                                 )
                             ) {
                                 Text("Guardar Clave", fontWeight = FontWeight.Bold)
@@ -557,7 +548,7 @@ fun SettingsSheet(
                                 shape = RoundedCornerShape(12.dp)
                             ),
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) Color(0xFF131D2E) else ObsidianCard
+                        color = if (isSelected) (if (isAppDark()) Color(0xFF131D2E) else persona.accentColor.copy(alpha = 0.12f)) else ObsidianCard
                     ) {
                         Row(
                             modifier = Modifier
@@ -567,12 +558,12 @@ fun SettingsSheet(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (isSelected) persona.accentColor.copy(alpha = 0.2f)
-                                        else Color(0xFF1E293B)
-                                    ),
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) persona.accentColor.copy(alpha = 0.2f)
+                                    else if (isAppDark()) Color(0xFF1E293B) else ObsidianSubtle
+                                ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -590,7 +581,7 @@ fun SettingsSheet(
                                     text = persona.title,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) TextPrimaryDark else Color(0xFFCBD5E1)
+                                    color = TextPrimaryDark
                                 )
                                 Text(
                                     text = persona.description,

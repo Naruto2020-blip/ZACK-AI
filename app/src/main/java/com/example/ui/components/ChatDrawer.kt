@@ -59,17 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ChatSessionEntity
-import com.example.ui.theme.CyanAccent
-import com.example.ui.theme.DeepIndigo
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianCardBorder
-import com.example.ui.theme.RadiantViolet
-import com.example.ui.theme.RoseRed
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -222,7 +212,7 @@ fun ChatDrawerContent(
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
                     contentDescription = null,
-                    tint = ObsidianBackground,
+                    tint = if (isAppDark()) DarkBackground else Color.White,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -480,12 +470,12 @@ fun ChatDrawerContent(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Buscar en chats...", color = Color(0xFF64748B), fontSize = 12.sp) },
+            placeholder = { Text("Buscar en chats...", color = TextSecondaryDark, fontSize = 12.sp) },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Buscar",
-                    tint = Color(0xFF64748B),
+                    tint = TextSecondaryDark,
                     modifier = Modifier.size(16.dp)
                 )
             },
@@ -498,7 +488,7 @@ fun ChatDrawerContent(
                         Icon(
                             imageVector = Icons.Default.Clear,
                             contentDescription = "Limpiar búsqueda",
-                            tint = Color(0xFF64748B),
+                            tint = TextSecondaryDark,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -532,7 +522,7 @@ fun ChatDrawerContent(
             ) {
                 Text(
                     text = if (searchQuery.isNotBlank()) "No se encontraron chats con '$searchQuery'" else "No hay conversaciones",
-                    color = Color(0xFF475569),
+                    color = TextSecondaryDark,
                     fontSize = 12.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
@@ -552,9 +542,9 @@ fun ChatDrawerContent(
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { onSelectSession(session.id) }
                             .testTag("session_item_${session.id}"),
-                        color = if (isSelected) ObsidianCard else Color.Transparent,
+                        color = if (isSelected) (if (isAppDark()) ObsidianCard else Color(0xFFEFF6FF)) else Color.Transparent,
                         shape = RoundedCornerShape(8.dp),
-                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, DeepIndigo) else null
+                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, if (isAppDark()) DeepIndigo else ElectricCyan) else null
                     ) {
                         Row(
                             modifier = Modifier
@@ -585,7 +575,7 @@ fun ChatDrawerContent(
                                     )
                                     Text(
                                         text = dateFormat.format(Date(session.updatedAt)),
-                                        color = Color(0xFF64748B),
+                                        color = TextTertiaryDark,
                                         fontSize = 10.sp
                                     )
                                 }
@@ -600,7 +590,7 @@ fun ChatDrawerContent(
                                 Icon(
                                     imageVector = Icons.Default.DeleteOutline,
                                     contentDescription = "Eliminar chat",
-                                    tint = Color(0xFF64748B),
+                                    tint = TextSecondaryDark,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }

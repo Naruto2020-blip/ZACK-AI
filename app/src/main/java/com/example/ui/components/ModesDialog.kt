@@ -38,13 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianCardBorder
-import com.example.ui.theme.RadiantViolet
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.*
 
 data class AiModeItem(
     val key: String,
@@ -198,7 +192,7 @@ fun ModesDialog(
                                 }
                                 .testTag("mode_card_${mode.key}"),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected) ObsidianCard else Color(0xFF0F172A)
+                                containerColor = if (isSelected) (if (isAppDark()) ObsidianCard else mode.accentColor.copy(alpha = 0.12f)) else (if (isAppDark()) Color(0xFF0F172A) else ObsidianCard)
                             ),
                             shape = RoundedCornerShape(14.dp),
                             border = BorderStroke(
@@ -256,7 +250,7 @@ fun ModesDialog(
 
                                     Text(
                                         text = mode.description,
-                                        color = Color(0xFF94A3B8),
+                                        color = TextSecondaryDark,
                                         fontSize = 12.sp,
                                         lineHeight = 16.sp
                                     )

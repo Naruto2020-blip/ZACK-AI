@@ -26,7 +26,7 @@ class CascadeEngine(
     private val repository: ChatRepository
 ) {
     private val tag = "CascadeEngine"
-    private val maxGlobalTimeoutMs = 50_000L
+    private val maxGlobalTimeoutMs = 120_000L
 
     suspend fun executeCascade(
         history: List<ChatMessageEntity>,
@@ -40,19 +40,49 @@ class CascadeEngine(
         onCascadeHop: ((CascadeHop) -> Unit)? = null
     ): CascadeExecutionResult = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
+        val maxAttempts = 3
 
         val timedResult = withTimeoutOrNull(maxGlobalTimeoutMs) {
-            runCascadeInternal(
-                history = history,
-                newPrompt = newPrompt,
-                primaryModel = primaryModel,
-                autoCascadeEnabled = autoCascadeEnabled,
-                systemInstruction = systemInstruction,
-                temperature = temperature,
-                attachmentMimeType = attachmentMimeType,
-                attachmentBase64 = attachmentBase64,
-                onCascadeHop = onCascadeHop,
-                startTime = startTime
+            var lastResult: CascadeExecutionResult? = null
+
+            for (attempt in 1..maxAttempts) {
+                Log.d(tag, "Executing request attempt $attempt of $maxAttempts")
+                val result = runCascadeInternal(
+                    history = history,
+                    newPrompt = newPrompt,
+                    primaryModel = primaryModel,
+                    autoCascadeEnabled = autoCascadeEnabled,
+                    systemInstruction = systemInstruction,
+                    temperature = temperature,
+                    attachmentMimeType = attachmentMimeType,
+                    attachmentBase64 = attachmentBase64,
+                    onCascadeHop = onCascadeHop,
+                    startTime = startTime
+                )
+
+                if (!result.isError && result.content.isNotBlank()) {
+                    return@withTimeoutOrNull result
+                }
+
+                lastResult = result
+                if (attempt < maxAttempts) {
+                    Log.d(tag, "Attempt $attempt did not succeed. Silently retrying in background (${attempt + 1}/$maxAttempts)...")
+                    kotlinx.coroutines.delay(600L)
+                }
+            }
+
+            // Only if ALL attempts fail, return friendly error without technical codes
+            lastResult?.copy(
+                content = "Por favor, intenta de nuevo en un momento",
+                isError = true
+            ) ?: CascadeExecutionResult(
+                content = "Por favor, intenta de nuevo en un momento",
+                usedModel = primaryModel,
+                requestedPrimaryModel = primaryModel,
+                wasCascaded = false,
+                hops = emptyList(),
+                latencyMs = System.currentTimeMillis() - startTime,
+                isError = true
             )
         }
 
@@ -62,7 +92,7 @@ class CascadeEngine(
             val totalLatency = System.currentTimeMillis() - startTime
             Log.w(tag, "Cascade execution timed out after ${totalLatency}ms")
             CascadeExecutionResult(
-                content = "⏱️ Tiempo de espera agotado (50s)\n\nEl servidor de Google tardó más de 50 segundos en responder. Por favor, intenta enviar tu mensaje nuevamente o prueba cambiando tu API Key en los Ajustes si la cuota fue excedida.",
+                content = "Por favor, intenta de nuevo en un momento",
                 usedModel = primaryModel,
                 requestedPrimaryModel = primaryModel,
                 wasCascaded = false,
@@ -105,7 +135,7 @@ class CascadeEngine(
         
         // Clean history: exclude error messages and ensure alternating user/model roles
         val validHistory = history
-            .filter { !it.isError && it.content.isNotBlank() && !it.content.startsWith("⏱️") && !it.content.startsWith("⚠️") }
+            .filter { !it.isError && it.content.isNotBlank() && !it.content.startsWith("Por favor, intenta de nuevo") && !it.content.startsWith("⏱️") && !it.content.startsWith("⚠️") }
             .takeLast(8)
 
         var lastRole: String? = null
@@ -194,7 +224,7 @@ class CascadeEngine(
             for (endpoint in modelEndpoints) {
                 try {
                     Log.d(tag, "Attempting request with model endpoint: $endpoint")
-                    val response = withTimeoutOrNull(15_000L) {
+                    val response = withTimeoutOrNull(90_000L) {
                         apiService.generateContent(
                             model = endpoint,
                             apiKeyQuery = apiKey,
@@ -203,7 +233,7 @@ class CascadeEngine(
                     }
 
                     if (response == null) {
-                        failureReason = "Tiempo de espera individual agotado (15s)"
+                        failureReason = "Tiempo de espera individual agotado (90s)"
                         continue
                     }
 
@@ -212,8 +242,8 @@ class CascadeEngine(
                     // Quick retry on 503 (temporary network spike/service unavailable)
                     val finalResponse = if (httpCode == 503) {
                         Log.w(tag, "Model $endpoint returned 503 (Saturación), retrying once...")
-                        kotlinx.coroutines.delay(300L)
-                        withTimeoutOrNull(10_000L) {
+                        kotlinx.coroutines.delay(500L)
+                        withTimeoutOrNull(30_000L) {
                             apiService.generateContent(
                                 model = endpoint,
                                 apiKeyQuery = apiKey,
@@ -248,7 +278,7 @@ class CascadeEngine(
                                     )
                                 )
                             )
-                            val retryResponse = withTimeoutOrNull(10_000L) {
+                            val retryResponse = withTimeoutOrNull(30_000L) {
                                 apiService.generateContent(
                                     model = endpoint,
                                     apiKeyQuery = apiKey,
@@ -306,7 +336,7 @@ class CascadeEngine(
             if (isNetworkOffline) {
                 val totalLatency = System.currentTimeMillis() - startTime
                 return CascadeExecutionResult(
-                    content = "⚠️ Error de conexión a Internet\n\nNo fue posible establecer comunicación con los servidores de Google (generativelanguage.googleapis.com).\n\nPor favor, verifica que tu dispositivo cuente con conexión activa a Internet (WiFi o datos móviles) e intenta nuevamente.",
+                    content = "Por favor, intenta de nuevo en un momento",
                     usedModel = primaryModel,
                     requestedPrimaryModel = primaryModel,
                     wasCascaded = false,
@@ -369,15 +399,9 @@ class CascadeEngine(
             }
         }
 
-        // If all models in the cascade failed, return clear error result
+        // If all models in the cascade failed, return polite friendly message
         val totalLatency = System.currentTimeMillis() - startTime
-        val isApiKeyIssue = lastErrorText?.contains("Clave de API", ignoreCase = true) == true
-
-        val finalMessage = if (isApiKeyIssue) {
-            "⚠️ Error de Clave de API de Gemini (HTTP 400)\n\nLa clave de API actual no es válida o no está autorizada por Google AI Studio."
-        } else {
-            "⚠️ No fue posible obtener respuesta de los modelos.\n\nMotivo: ${lastErrorText ?: "Error de comunicación con el servicio"}\n\nPor favor, verifica tu conexión o intenta nuevamente."
-        }
+        val finalMessage = "Por favor, intenta de nuevo en un momento"
 
         return CascadeExecutionResult(
             content = finalMessage,

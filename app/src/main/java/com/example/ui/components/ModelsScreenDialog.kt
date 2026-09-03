@@ -39,13 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.GeminiModelSpec
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianCardBorder
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.*
 import com.example.ui.viewmodel.ChatUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -181,7 +175,7 @@ fun ModelsScreenDialog(
                                 )
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = if (modelSpec.isPrimary) ElectricCyan.copy(alpha = 0.15f) else Color(0xFF1E293B),
+                                    color = if (modelSpec.isPrimary) ElectricCyan.copy(alpha = 0.15f) else if (isAppDark()) Color(0xFF1E293B) else ObsidianSubtle,
                                     border = androidx.compose.foundation.BorderStroke(
                                         0.5.dp,
                                         if (modelSpec.isPrimary) ElectricCyan.copy(alpha = 0.5f) else ObsidianCardBorder
@@ -203,8 +197,8 @@ fun ModelsScreenDialog(
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF090E17),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B))
+                                color = if (isAppDark()) Color(0xFF090E17) else ObsidianSubtle,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianCardBorder)
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -223,7 +217,7 @@ fun ModelsScreenDialog(
                                         )
                                         Text(
                                             text = "Usadas: $usedQuota",
-                                            color = Color(0xFF94A3B8),
+                                            color = TextSecondaryDark,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Medium
                                         )

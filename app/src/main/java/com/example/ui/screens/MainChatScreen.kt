@@ -89,14 +89,7 @@ import com.example.ui.components.FavoritesSheet
 import com.example.ui.components.FilePickerMenu
 import com.example.ui.components.SettingsSheet
 import com.example.ui.components.TasksAndRemindersSheet
-import com.example.ui.theme.CyanAccent
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianCardBorder
-import com.example.ui.theme.RadiantViolet
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.*
 import com.example.ui.viewmodel.ChatViewModel
 import com.example.util.AudioRecordManager
 import kotlinx.coroutines.delay
@@ -605,7 +598,7 @@ fun EmptyChatState(
             Icon(
                 imageVector = Icons.Default.AutoAwesome,
                 contentDescription = null,
-                tint = ObsidianBackground,
+                tint = if (isAppDark()) DarkBackground else Color.White,
                 modifier = Modifier.size(36.dp)
             )
         }
@@ -638,7 +631,7 @@ fun EmptyChatState(
                 ) {
                     Text(
                         text = prompt,
-                        color = Color(0xFFE2E8F0),
+                        color = TextPrimaryDark,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                     )
@@ -862,7 +855,7 @@ fun ChatInputBar(
                     placeholder = {
                         Text(
                             text = "Escribe o sube PDF, Word, Excel, PPT...",
-                            color = Color(0xFF94A3B8),
+                            color = TextSecondaryDark,
                             fontSize = 13.sp
                         )
                     },
@@ -895,7 +888,11 @@ fun ChatInputBar(
                             if (inputText.isNotBlank() && !isGenerating) {
                                 Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))
                             } else {
-                                Brush.linearGradient(listOf(Color(0xFF1E293B), Color(0xFF1E293B)))
+                                if (isAppDark()) {
+                                    Brush.linearGradient(listOf(Color(0xFF1E293B), Color(0xFF1E293B)))
+                                } else {
+                                    Brush.linearGradient(listOf(Color(0xFFE2E8F0), Color(0xFFE2E8F0)))
+                                }
                             }
                         )
                         .clickable(enabled = (inputText.isNotBlank() || isGenerating.not()) && !isGenerating) {
@@ -914,7 +911,7 @@ fun ChatInputBar(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "Enviar",
-                            tint = if (inputText.isNotBlank()) ObsidianBackground else TextSecondaryDark,
+                            tint = if (inputText.isNotBlank()) Color.White else TextSecondaryDark,
                             modifier = Modifier.size(20.dp)
                         )
                     }

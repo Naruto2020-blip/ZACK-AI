@@ -21,7 +21,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.CyanAccent
+import com.example.ui.theme.DeepIndigo
 import com.example.ui.theme.ElectricCyan
+import com.example.ui.theme.isAppDark
 
 @Composable
 fun MarkdownContent(
@@ -29,6 +31,10 @@ fun MarkdownContent(
     modifier: Modifier = Modifier,
     textColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
+    val isDark = isAppDark()
+    val inlineCodeBg = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)
+    val inlineCodeColor = if (isDark) ElectricCyan else DeepIndigo
+
     Column(modifier = modifier.fillMaxWidth()) {
         val blocks = parseMarkdownBlocks(text)
         blocks.forEach { block ->
@@ -59,7 +65,7 @@ fun MarkdownContent(
                                 .size(6.dp)
                         )
                         Text(
-                            text = formatInlineMarkdown(block.text, textColor),
+                            text = formatInlineMarkdown(block.text, textColor, inlineCodeBg, inlineCodeColor),
                             style = MaterialTheme.typography.bodyMedium,
                             fontSize = 15.sp,
                             lineHeight = 22.sp
@@ -69,7 +75,7 @@ fun MarkdownContent(
                 is MarkdownBlock.Paragraph -> {
                     if (block.text.isNotBlank()) {
                         Text(
-                            text = formatInlineMarkdown(block.text, textColor),
+                            text = formatInlineMarkdown(block.text, textColor, inlineCodeBg, inlineCodeColor),
                             style = MaterialTheme.typography.bodyMedium,
                             fontSize = 15.sp,
                             lineHeight = 22.sp,
@@ -132,7 +138,12 @@ fun parseMarkdownBlocks(rawText: String): List<MarkdownBlock> {
     return result
 }
 
-fun formatInlineMarkdown(text: String, defaultColor: Color) = buildAnnotatedString {
+fun formatInlineMarkdown(
+    text: String,
+    defaultColor: Color,
+    codeBgColor: Color = Color(0xFF1E293B),
+    codeTextColor: Color = ElectricCyan
+) = buildAnnotatedString {
     var cursor = 0
     val regex = Regex("(\\*\\*|`)(.*?)\\1")
     val matches = regex.findAll(text)
@@ -157,8 +168,8 @@ fun formatInlineMarkdown(text: String, defaultColor: Color) = buildAnnotatedStri
             withStyle(
                 SpanStyle(
                     fontFamily = FontFamily.Monospace,
-                    color = ElectricCyan,
-                    background = Color(0xFF1E293B)
+                    color = codeTextColor,
+                    background = codeBgColor
                 )
             ) {
                 append(" $content ")

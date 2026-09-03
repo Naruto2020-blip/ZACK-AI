@@ -81,16 +81,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.AmberGold
-import com.example.ui.theme.CyanAccent
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianCardBorder
-import com.example.ui.theme.RadiantViolet
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.*
 import com.example.util.CompressResult
 import com.example.util.FileProcessor
 import com.example.util.MergeResult
@@ -131,7 +122,7 @@ fun DocumentToolsDialog(
                     .padding(vertical = 10.dp)
                     .size(width = 36.dp, height = 4.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF475569))
+                    .background(if (isAppDark()) Color(0xFF475569) else Color(0xFFCBD5E1))
             )
         },
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
@@ -159,7 +150,7 @@ fun DocumentToolsDialog(
                         Icon(
                             imageVector = Icons.Default.AutoFixHigh,
                             contentDescription = null,
-                            tint = ObsidianBackground,
+                            tint = if (isAppDark()) DarkBackground else Color.White,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -414,7 +405,7 @@ private fun FillPdfFormView(
             },
             enabled = selectedUri != null || userDataInput.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = ObsidianBackground),
+            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color(0xFF090D16)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(imageVector = Icons.Default.EditNote, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -585,7 +576,7 @@ private fun SummarizeDocView(
             },
             enabled = selectedUri != null || manualText.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = ObsidianBackground),
+            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color(0xFF090D16)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(imageVector = Icons.Default.Description, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -709,7 +700,7 @@ private fun SpellcheckView(
             },
             enabled = selectedUri != null || textInput.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = ObsidianBackground),
+            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color(0xFF090D16)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(imageVector = Icons.Default.Spellcheck, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -886,7 +877,7 @@ private fun TranslateDocView(
             },
             enabled = selectedUri != null || textInput.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = ObsidianBackground),
+            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color(0xFF090D16)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(imageVector = Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -1038,7 +1029,7 @@ private fun CompressPdfView() {
             },
             enabled = selectedUri != null && !isCompressing,
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = ObsidianBackground),
+            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color(0xFF090D16)),
             shape = RoundedCornerShape(12.dp)
         ) {
             if (isCompressing) {
@@ -1263,7 +1254,7 @@ private fun MergeSplitPdfView() {
                 },
                 enabled = mergeUris.size >= 2 && !isMerging,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = ObsidianBackground),
+                colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color(0xFF090D16)),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (isMerging) {

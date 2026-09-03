@@ -41,9 +41,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCardBorder
+import com.example.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -70,7 +68,7 @@ fun CodeBlockView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF161E2E))
+                    .background(if (isAppDark()) Color(0xFF161E2E) else ObsidianSubtle)
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -110,7 +108,7 @@ fun CodeBlockView(
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = "Copiar Código",
-                            tint = Color(0xFF9CA3AF),
+                            tint = TextSecondaryDark,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -127,7 +125,7 @@ fun CodeBlockView(
                 ) {
                     Text(
                         text = code,
-                        color = Color(0xFFE2E8F0),
+                        color = TextPrimaryDark,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 13.sp,
                         lineHeight = 18.sp

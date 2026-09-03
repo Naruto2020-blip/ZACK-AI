@@ -56,18 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ChatMessageEntity
-import com.example.ui.theme.AmberGold
-import com.example.ui.theme.CyanAccent
-import com.example.ui.theme.DeepIndigo
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianCardBorder
-import com.example.ui.theme.RadiantViolet
-import com.example.ui.theme.RoseRed
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.*
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -218,7 +207,7 @@ fun ChatMessageBubble(
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
                         contentDescription = "IA",
-                        tint = ObsidianBackground,
+                        tint = if (isAppDark()) DarkBackground else Color.White,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -228,13 +217,13 @@ fun ChatMessageBubble(
                 Card(
                     shape = RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (message.isError) Color(0xFF261215) else ObsidianCard
+                        containerColor = ObsidianCard
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(
                             width = 1.dp,
-                            color = if (message.isError) RoseRed.copy(alpha = 0.6f) else ObsidianCardBorder,
+                            color = if (message.isError) AmberGold.copy(alpha = 0.35f) else ObsidianCardBorder,
                             shape = RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
                         )
                 ) {
@@ -257,25 +246,14 @@ fun ChatMessageBubble(
 
                         // Message Text Body
                         if (message.isError) {
-                            Row(verticalAlignment = Alignment.Top) {
-                                Icon(
-                                    imageVector = Icons.Default.ErrorOutline,
-                                    contentDescription = "Error",
-                                    tint = RoseRed,
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .padding(top = 2.dp)
+                            SelectionContainer {
+                                Text(
+                                    text = message.content,
+                                    color = TextPrimaryDark,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontSize = 14.sp,
+                                    lineHeight = 20.sp
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                SelectionContainer {
-                                    Text(
-                                        text = message.content,
-                                        color = RoseRed,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontSize = 14.sp,
-                                        lineHeight = 20.sp
-                                    )
-                                }
                             }
                         } else {
                             SelectionContainer {
@@ -533,7 +511,7 @@ fun ChatMessageBubble(
                         .padding(vertical = 10.dp)
                         .size(width = 36.dp, height = 4.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF475569))
+                        .background(if (isAppDark()) Color(0xFF475569) else Color(0xFFCBD5E1))
                 )
             },
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
@@ -686,7 +664,7 @@ fun ExportFormatOptionCard(
             .clickable { onClick() }
             .border(1.dp, ObsidianCardBorder, RoundedCornerShape(12.dp))
             .testTag("export_option_${format.extension}"),
-        color = ObsidianBackground.copy(alpha = 0.7f),
+        color = if (isAppDark()) ObsidianBackground.copy(alpha = 0.7f) else ObsidianSubtle,
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(

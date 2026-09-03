@@ -51,13 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ChatMessageEntity
-import com.example.ui.theme.AmberGold
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianCardBorder
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.*
 import com.example.util.ShareUtils
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -85,7 +79,7 @@ fun FavoritesSheet(
                     .padding(vertical = 10.dp)
                     .size(width = 36.dp, height = 4.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF475569))
+                    .background(if (isAppDark()) Color(0xFF475569) else Color(0xFFCBD5E1))
             )
         },
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),

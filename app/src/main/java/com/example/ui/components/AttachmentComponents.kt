@@ -217,15 +217,16 @@ private fun QuickActionChip(
     label: String,
     onClick: () -> Unit
 ) {
+    val isDark = isAppDark()
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1E293B),
-        border = androidx.compose.foundation.BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.4f)),
+        color = if (isDark) Color(0xFF1E293B) else ObsidianSubtle,
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) ElectricCyan.copy(alpha = 0.4f) else DeepIndigo.copy(alpha = 0.4f)),
         modifier = Modifier.clickable { onClick() }
     ) {
         Text(
             text = label,
-            color = ElectricCyan,
+            color = if (isDark) ElectricCyan else DeepIndigo,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)

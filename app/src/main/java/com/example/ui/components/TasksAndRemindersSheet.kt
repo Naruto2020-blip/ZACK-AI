@@ -63,14 +63,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ReminderTaskEntity
-import com.example.ui.theme.AmberGold
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.ObsidianBackground
-import com.example.ui.theme.ObsidianCard
-import com.example.ui.theme.ObsidianCardBorder
-import com.example.ui.theme.TextPrimaryDark
-import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -104,7 +97,7 @@ fun TasksAndRemindersSheet(
                     .padding(vertical = 10.dp)
                     .size(width = 36.dp, height = 4.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF475569))
+                    .background(if (isAppDark()) Color(0xFF475569) else Color(0xFFCBD5E1))
             )
         },
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
@@ -528,7 +521,7 @@ private fun AddTaskDialog(
                                 onConfirm(title.trim(), timeMillis)
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = ObsidianBackground),
+                        colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color(0xFF090D16)),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text("Guardar", fontWeight = FontWeight.Bold)
