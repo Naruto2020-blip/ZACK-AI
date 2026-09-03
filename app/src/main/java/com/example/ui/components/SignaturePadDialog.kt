@@ -88,17 +88,18 @@ fun SignaturePadDialog(
     ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(20.dp))
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(18.dp))
                 .testTag("signature_dialog"),
             colors = CardDefaults.cardColors(containerColor = ObsidianCard),
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(18.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
+                    .padding(horizontal = 10.dp, vertical = 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Header
@@ -131,7 +132,7 @@ fun SignaturePadDialog(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Dibuja tu firma en el recuadro blanco",
+                                text = "Espacio amplio para dibujar cómodamente",
                                 color = TextSecondaryDark,
                                 fontSize = 11.sp
                             )
@@ -151,16 +152,16 @@ fun SignaturePadDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Canvas Area (Pure white background for clean ink rendering)
+                // Canvas Area (Expansive white background spanning almost the entire screen width)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp)
+                        .height(280.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color.White)
-                        .border(1.5.dp, Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
+                        .border(2.dp, Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
                 ) {
                     // Guide baseline line
                     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -336,8 +337,8 @@ fun SignaturePadDialog(
  * Converts captured vector stroke paths into an Android Bitmap with transparent background.
  */
 private fun createSignatureBitmap(paths: List<StrokePath>): Bitmap {
-    val width = 600
-    val height = 260
+    val width = 900
+    val height = 360
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 

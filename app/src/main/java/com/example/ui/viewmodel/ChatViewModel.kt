@@ -30,6 +30,8 @@ import android.net.Uri
 import com.example.data.local.ReminderTaskEntity
 import com.example.util.FileProcessor
 import com.example.util.ProcessedAttachment
+import com.example.util.DocumentCleaner
+import com.example.util.DocumentSignatureDetector
 import kotlinx.coroutines.flow.combine
 
 data class ChatUiState(
@@ -121,6 +123,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         "Profesor / Tutor" to "Eres un profesor y tutor pedagógico paciente y didáctico. Explicas temas difíciles paso a paso mediante ejemplos claros, resuelves dudas académicas, ayudas con tareas escolares y universitarias, elaboras resúmenes y guías para preparar exámenes con éxito.",
         "📚 Profesor / Tutor" to "Eres un profesor y tutor pedagógico paciente y didáctico. Explicas temas difíciles paso a paso mediante ejemplos claros, resuelves dudas académicas, ayudas con tareas escolares y universitarias, elaboras resúmenes y guías para preparar exámenes con éxito."
     )
+
+    private fun getEffectiveSystemInstruction(): String {
+        val basePersona = personaPrompts[_uiState.value.systemPersona] ?: ""
+        val documentRule = """
+        
+        REGLA ESTRICTA PARA CARTAS, OFICIOS Y DOCUMENTOS FORMALES:
+        Cuando el usuario solicite redactar una carta, oficio, solicitud, renuncia o documento formal (por ejemplo: para el IMAS, bancos, empleadores, instituciones, juzgados, etc.):
+        1. Proporciona ÚNICAMENTE la carta formal lista para usar.
+        2. NUNCA escribas introducciones o saludos previos como 'Para redactar la carta adecuada...', 'Aquí tienes...', 'Solo debes completar los espacios...'.
+        3. NUNCA coloques la solicitud del usuario (ej: 'Créame una carta para el IMAS') como título.
+        4. NUNCA incluyas el nombre 'ZACK AI'.
+        5. NUNCA agregues secciones de 'Recomendaciones', 'Notas', 'Consejos' o 'Aclaraciones' al final.
+        6. Los campos a rellenar deben ser limpios y directos entre corchetes SIN ejemplos ni explicaciones: escribe exactamente [Lugar], [Fecha], [Tu Nombre Completo], [Cédula], [Dirección], [Teléfono], etc. (NUNCA agregues 'ej:' ni explicaciones).
+        7. El resultado debe ser directamente la carta limpia, oficial y profesional.
+        """.trimIndent()
+        return if (basePersona.isNotBlank()) "$basePersona\n$documentRule" else documentRule
+    }
 
     init {
         startDailyResetTimer()
@@ -354,7 +373,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val history = repository.getMessagesForSessionSync(sessionId)
-            val systemInstruction = personaPrompts[_uiState.value.systemPersona]
+            val systemInstruction = getEffectiveSystemInstruction()
 
             val result = cascadeEngine.executeCascade(
                 history = history,
@@ -374,11 +393,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 result.hops.joinToString(" ➔ ") { "${it.fromModel.displayName} (${it.reason})" }
             } else null
 
+            // Clean letter content if detected
+            val cleanContent = if (!result.isError && (
+                DocumentSignatureDetector.isSignableDocument(result.content) ||
+                result.content.contains("Para redactar", ignoreCase = true) ||
+                result.content.contains("debes completar", ignoreCase = true) ||
+                result.content.contains("[ej:", ignoreCase = true)
+            )) {
+                DocumentCleaner.cleanLetterDocument(result.content, effectivePrompt)
+            } else {
+                result.content
+            }
+
             // Save model response to database
             repository.insertMessage(
                 sessionId = sessionId,
                 role = "model",
-                content = result.content,
+                content = cleanContent,
                 modelUsed = result.usedModel.displayName,
                 wasCascaded = result.wasCascaded,
                 cascadeReason = cascadeReason,
@@ -415,7 +446,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             val promptForModel = "Por favor escucha con atención este audio de mi voz original y responde a mi pregunta o solicitud de forma clara, precisa y estructurada en español."
             val history = repository.getMessagesForSessionSync(sessionId)
-            val systemInstruction = personaPrompts[_uiState.value.systemPersona]
+            val systemInstruction = getEffectiveSystemInstruction()
 
             val result = cascadeEngine.executeCascade(
                 history = history,
@@ -435,11 +466,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 result.hops.joinToString(" ➔ ") { "${it.fromModel.displayName} (${it.reason})" }
             } else null
 
+            // Clean letter content if detected
+            val cleanContent = if (!result.isError && (
+                DocumentSignatureDetector.isSignableDocument(result.content) ||
+                result.content.contains("Para redactar", ignoreCase = true) ||
+                result.content.contains("debes completar", ignoreCase = true) ||
+                result.content.contains("[ej:", ignoreCase = true)
+            )) {
+                DocumentCleaner.cleanLetterDocument(result.content)
+            } else {
+                result.content
+            }
+
             // Save model response to database
             repository.insertMessage(
                 sessionId = sessionId,
                 role = "model",
-                content = result.content,
+                content = cleanContent,
                 modelUsed = result.usedModel.displayName,
                 wasCascaded = result.wasCascaded,
                 cascadeReason = cascadeReason,

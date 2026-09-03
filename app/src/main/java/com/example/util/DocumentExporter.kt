@@ -114,7 +114,21 @@ object DocumentExporter {
         }
 
         if (rawTitle.isBlank()) {
-            rawTitle = "Documento ZACK AI"
+            rawTitle = "Documento"
+        }
+
+        // Clean user prompt phrases and brand names
+        rawTitle = rawTitle
+            .replace(Regex("(?i)^Créame\\s+una\\s+carta\\s+para\\s+el\\s+"), "Carta ")
+            .replace(Regex("(?i)^Créame\\s+una\\s+carta\\s+para\\s+"), "Carta ")
+            .replace(Regex("(?i)^Créame\\s+una\\s+carta\\s+de\\s+"), "Carta ")
+            .replace(Regex("(?i)^Carta\\s+para\\s+el\\s+IMAS.*"), "Carta IMAS")
+            .replace(Regex("(?i)^Carta\\s+para\\s+"), "Carta ")
+            .replace(Regex("(?i)ZACK AI"), "")
+            .trim()
+
+        if (rawTitle.isBlank()) {
+            rawTitle = "Documento"
         }
 
         // Sanitize for file system
@@ -146,7 +160,8 @@ object DocumentExporter {
         signatureBitmap: Bitmap? = null
     ): ExportResult = withContext(Dispatchers.IO) {
         try {
-            val fileName = generateDocumentName(content, format, sessionTitle)
+            val cleanContent = DocumentCleaner.cleanLetterDocument(content, sessionTitle)
+            val fileName = generateDocumentName(cleanContent, format, sessionTitle)
             val docDir = File(context.cacheDir, "documents")
             if (!docDir.exists()) {
                 docDir.mkdirs()
@@ -154,10 +169,10 @@ object DocumentExporter {
             val outFile = File(docDir, fileName)
 
             when (format) {
-                ExportFormat.PDF -> generatePdf(context, content, outFile, fileName, signatureBitmap)
-                ExportFormat.WORD -> generateWordDocx(content, outFile, fileName, signatureBitmap)
-                ExportFormat.POWERPOINT -> generatePowerPointPptx(content, outFile, fileName)
-                ExportFormat.EXCEL -> generateExcelXlsx(content, outFile, fileName)
+                ExportFormat.PDF -> generatePdf(context, cleanContent, outFile, fileName, signatureBitmap)
+                ExportFormat.WORD -> generateWordDocx(cleanContent, outFile, fileName, signatureBitmap)
+                ExportFormat.POWERPOINT -> generatePowerPointPptx(cleanContent, outFile, fileName)
+                ExportFormat.EXCEL -> generateExcelXlsx(cleanContent, outFile, fileName)
             }
 
             // Save copy to Android system Downloads folder
@@ -276,20 +291,14 @@ object DocumentExporter {
         var pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
         var page = pdfDoc.startPage(pageInfo)
         var canvas = page.canvas
-        var y = margin + 15f
-
-        fun drawHeader() {
-            val displayTitle = docTitle.replace(Regex(" - \\d{2}-\\d{2}-\\d{4}\\.pdf$"), "")
-            canvas.drawText(displayTitle, margin, y, titlePaint)
-            y += 8f
-            canvas.drawLine(margin, y, margin + contentWidth, y, headerAccentPaint)
-            y += 20f
-        }
+        var y = margin + 10f
 
         fun finishCurrentPage() {
-            // Draw footer
-            val footerText = "Generado con ZACK AI  •  Página $pageNumber"
-            canvas.drawText(footerText, margin, pageHeight - 25f, footerPaint)
+            // Draw clean footer without any app brand (only page number if multi-page)
+            if (pageNumber > 1) {
+                val footerText = "Página $pageNumber"
+                canvas.drawText(footerText, margin, pageHeight - 25f, footerPaint)
+            }
             pdfDoc.finishPage(page)
         }
 
@@ -301,8 +310,6 @@ object DocumentExporter {
             canvas = page.canvas
             y = margin + 20f
         }
-
-        drawHeader()
 
         val lines = content.lines()
         var i = 0
@@ -539,25 +546,6 @@ object DocumentExporter {
 <w:body>
 """)
 
-            // Document Title Banner
-            val cleanTitle = docTitle.replace(Regex(" - \\d{2}-\\d{2}-\\d{4}\\.docx$"), "")
-            docXml.append("""
-<w:p>
-    <w:pPr>
-        <w:spacing w:before="240" w:after="160"/>
-        <w:pBdr><w:bottom w:val="single" w:sz="18" w:space="8" w:color="6366F1"/></w:pBdr>
-    </w:pPr>
-    <w:r>
-        <w:rPr>
-            <w:b/>
-            <w:sz w:val="40"/>
-            <w:color w:val="0F172A"/>
-        </w:rPr>
-        <w:t>${escapeXml(cleanTitle)}</w:t>
-    </w:r>
-</w:p>
-""")
-
             val lines = content.lines()
             var i = 0
             while (i < lines.size) {
@@ -668,12 +656,7 @@ object DocumentExporter {
                 i++
             }
 
-            // Footer note
             docXml.append("""
-<w:p>
-    <w:pPr><w:spacing w:before="300"/><w:pBdr><w:top w:val="single" w:sz="6" w:space="6" w:color="E2E8F0"/></w:pBdr></w:pPr>
-    <w:r><w:rPr><w:i/><w:sz w:val="18"/><w:color w:val="94A3B8"/></w:rPr><w:t>Generado por ZACK AI</w:t></w:r>
-</w:p>
 </w:body>
 </w:document>
 """)
@@ -836,10 +819,6 @@ object DocumentExporter {
                 <a:p>
                     <a:pPr algn="ctr"/>
                     <a:r><a:rPr sz="3600" b="1"><a:solidFill><a:srgbClr val="38BDF8"/></a:solidFill></a:rPr><a:t>${escapeXml(cleanTitle)}</a:t></a:r>
-                </a:p>
-                <a:p>
-                    <a:pPr algn="ctr"/>
-                    <a:r><a:rPr sz="1800"><a:solidFill><a:srgbClr val="94A3B8"/></a:solidFill></a:rPr><a:t>Presentación generada por ZACK AI</a:t></a:r>
                 </a:p>
             </p:txBody>
         </p:sp>
@@ -1056,7 +1035,7 @@ object DocumentExporter {
                 "xl/workbook.xml",
                 """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-    <sheets><sheet name="Datos ZACK AI" sheetId="1" r:id="rId1"/></sheets>
+    <sheets><sheet name="Datos" sheetId="1" r:id="rId1"/></sheets>
 </workbook>"""
             )
 
@@ -1157,7 +1136,7 @@ object DocumentExporter {
                 type = format.mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, fileName)
-                putExtra(Intent.EXTRA_TEXT, "Documento exportado desde ZACK AI: $fileName")
+                putExtra(Intent.EXTRA_TEXT, "Documento exportado: $fileName")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             val chooser = Intent.createChooser(shareIntent, "Descargar / Compartir $fileName")

@@ -94,17 +94,18 @@ fun SignaturePlacementDialog(
     ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth(0.96f)
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(20.dp))
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(18.dp))
                 .testTag("signature_placement_dialog"),
             colors = CardDefaults.cardColors(containerColor = ObsidianCard),
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(18.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(18.dp)
+                    .padding(horizontal = 10.dp, vertical = 14.dp)
             ) {
                 // Header
                 Row(

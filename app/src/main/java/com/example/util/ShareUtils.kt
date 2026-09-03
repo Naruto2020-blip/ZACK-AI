@@ -11,7 +11,7 @@ import java.io.File
 
 object ShareUtils {
 
-    fun copyToClipboard(context: Context, text: String, label: String = "Respuesta ZACK AI") {
+    fun copyToClipboard(context: Context, text: String, label: String = "Documento") {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText(label, text)
         clipboard.setPrimaryClip(clip)
@@ -43,7 +43,7 @@ object ShareUtils {
         }
     }
 
-    fun shareViaEmail(context: Context, text: String, subject: String = "Respuesta de ZACK AI") {
+    fun shareViaEmail(context: Context, text: String, subject: String = "Documento") {
         try {
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:")

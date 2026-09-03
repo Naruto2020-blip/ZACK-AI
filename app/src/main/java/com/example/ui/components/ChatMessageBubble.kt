@@ -87,6 +87,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import com.example.util.DocumentSignatureDetector
+import com.example.util.DocumentCleaner
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -120,6 +121,14 @@ fun ChatMessageBubble(
     var currentSignatureBitmap by remember { mutableStateOf<Bitmap?>(null) }
     val isSignableDocument = remember(message.content, message.isError) {
         !message.isError && DocumentSignatureDetector.isSignableDocument(message.content)
+    }
+
+    val displayContent = remember(message.content, message.isError, isSignableDocument) {
+        if (!message.isError && (isSignableDocument || message.content.contains("Para redactar", ignoreCase = true) || message.content.contains("[ej:", ignoreCase = true))) {
+            DocumentCleaner.cleanLetterDocument(message.content, sessionTitle)
+        } else {
+            message.content
+        }
     }
 
     val timeFormat12h = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
@@ -271,7 +280,7 @@ fun ChatMessageBubble(
                         } else {
                             SelectionContainer {
                                 MarkdownContent(
-                                    text = message.content,
+                                    text = displayContent,
                                     textColor = TextPrimaryDark
                                 )
                             }
@@ -416,7 +425,7 @@ fun ChatMessageBubble(
                                     }
                                 } else {
                                     IconButton(
-                                        onClick = onToggleSpeak,
+                                        onClick = { onSpeak(displayContent) },
                                         modifier = Modifier
                                             .size(32.dp)
                                             .testTag("speak_message_button_${message.id}")
@@ -433,7 +442,7 @@ fun ChatMessageBubble(
                                 IconButton(
                                     onClick = {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        val clip = ClipData.newPlainText("Mensaje AI", message.content)
+                                        val clip = ClipData.newPlainText("Documento", displayContent)
                                         clipboard.setPrimaryClip(clip)
                                         isCopied = true
                                         Toast.makeText(context, "Respuesta copiada", Toast.LENGTH_SHORT).show()
@@ -507,7 +516,7 @@ fun ChatMessageBubble(
     // Modal Sheet de Compartir
     if (showShareSheet) {
         ShareMessageSheet(
-            content = message.content,
+            content = displayContent,
             onDismiss = { showShareSheet = false }
         )
     }
@@ -536,7 +545,7 @@ fun ChatMessageBubble(
                         isExporting = true
                         DocumentExporter.exportAndShare(
                             context = context,
-                            content = message.content,
+                            content = displayContent,
                             format = format,
                             sessionTitle = sessionTitle,
                             signatureBitmap = currentSignatureBitmap
@@ -566,7 +575,7 @@ fun ChatMessageBubble(
     if (showSignaturePlacement && currentSignatureBitmap != null) {
         SignaturePlacementDialog(
             signatureBitmap = currentSignatureBitmap!!,
-            documentContent = message.content,
+            documentContent = displayContent,
             onDismiss = { showSignaturePlacement = false },
             onReSign = {
                 showSignaturePlacement = false
