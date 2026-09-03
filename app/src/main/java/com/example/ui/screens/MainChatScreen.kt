@@ -108,6 +108,7 @@ fun MainChatScreen(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val favoriteMessages by viewModel.favoriteMessages.collectAsStateWithLifecycle()
     val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
+    val voiceGender by viewModel.voiceGender.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -125,21 +126,67 @@ fun MainChatScreen(
     var speakingMessageId by remember { mutableStateOf<String?>(null) }
     var tts: TextToSpeech? by remember { mutableStateOf(null) }
 
+    // Helper to apply language, voice gender, and pitch
+    fun configureTtsVoice(t: TextToSpeech?, gender: String) {
+        if (t == null) return
+        val latinoLocale = Locale("es", "MX")
+        val langResult = t.setLanguage(latinoLocale)
+        if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+            t.language = Locale("es")
+        }
+
+        // Fixed normal speed (1.0f)
+        t.setSpeechRate(1.0f)
+
+        // Try selecting specific system voice matching gender if available
+        var voiceSelected = false
+        try {
+            val availableVoices = t.voices
+            if (!availableVoices.isNullOrEmpty()) {
+                val matchingVoice = availableVoices.firstOrNull { v ->
+                    val isSpanish = v.locale.language == "es"
+                    val nameLower = v.name.lowercase()
+                    if (gender == "male") {
+                        isSpanish && (nameLower.contains("male") || nameLower.contains("hombre") || nameLower.contains("man") || nameLower.contains("masc"))
+                    } else {
+                        isSpanish && (nameLower.contains("female") || nameLower.contains("mujer") || nameLower.contains("fem"))
+                    }
+                } ?: availableVoices.firstOrNull { v ->
+                    val isSpanish = v.locale.language == "es"
+                    if (gender == "male") {
+                        isSpanish && !v.name.lowercase().contains("female")
+                    } else {
+                        isSpanish && !v.name.lowercase().contains("male")
+                    }
+                }
+
+                if (matchingVoice != null) {
+                    t.voice = matchingVoice
+                    voiceSelected = true
+                }
+            }
+        } catch (_: Exception) {}
+
+        // Natural pitch variation to reinforce masculine / feminine tone
+        if (gender == "male") {
+            t.setPitch(if (voiceSelected) 0.95f else 0.82f)
+        } else {
+            t.setPitch(if (voiceSelected) 1.05f else 1.18f)
+        }
+    }
+
     DisposableEffect(Unit) {
         val textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                // Español Latino preferente
-                val latinoLocale = Locale("es", "MX")
-                val langResult = tts?.setLanguage(latinoLocale)
-                if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    tts?.language = Locale("es")
-                }
+                configureTtsVoice(tts, voiceGender)
             }
         }
         textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {}
             override fun onDone(utteranceId: String?) {
-                coroutineScope.launch { speakingMessageId = null }
+                if (utteranceId?.startsWith("final_") == true || utteranceId == speakingMessageId) {
+                    coroutineScope.launch { speakingMessageId = null }
+                }
             }
             override fun onError(utteranceId: String?) {
                 coroutineScope.launch { speakingMessageId = null }
@@ -152,16 +199,50 @@ fun MainChatScreen(
         }
     }
 
-    // Toggle Speak response in clear Latin Spanish (Only on explicit click, never auto)
+    // React to voice gender preference changes
+    LaunchedEffect(voiceGender, tts) {
+        configureTtsVoice(tts, voiceGender)
+    }
+
+    // Toggle Speak response in clear Latin Spanish without truncation (chunks for long text)
     fun toggleSpeak(messageId: String, content: String) {
         if (speakingMessageId == messageId) {
             tts?.stop()
             speakingMessageId = null
         } else {
             tts?.stop()
+            configureTtsVoice(tts, voiceGender)
             val cleanText = cleanMarkdownForSpeech(content)
             speakingMessageId = messageId
-            tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, messageId)
+
+            // Chunk text if needed so long answers are never cut off by TTS character limits
+            val maxLen = TextToSpeech.getMaxSpeechInputLength().coerceAtMost(3000)
+            if (cleanText.length <= maxLen) {
+                tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, messageId)
+            } else {
+                val sentences = cleanText.split(Regex("(?<=[.!?\\n])\\s+"))
+                var currentChunk = StringBuilder()
+                val chunks = mutableListOf<String>()
+
+                for (s in sentences) {
+                    if (currentChunk.length + s.length + 1 > maxLen) {
+                        if (currentChunk.isNotBlank()) chunks.add(currentChunk.toString().trim())
+                        currentChunk = StringBuilder(s)
+                    } else {
+                        if (currentChunk.isNotEmpty()) currentChunk.append(" ")
+                        currentChunk.append(s)
+                    }
+                }
+                if (currentChunk.isNotBlank()) {
+                    chunks.add(currentChunk.toString().trim())
+                }
+
+                chunks.forEachIndexed { idx, chunk ->
+                    val queueMode = if (idx == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                    val chunkId = if (idx == chunks.lastIndex) "final_$messageId" else "${messageId}_$idx"
+                    tts?.speak(chunk, queueMode, null, chunkId)
+                }
+            }
         }
     }
 
@@ -443,6 +524,10 @@ fun MainChatScreen(
             currentThemeMode = themeMode,
             onSetThemeMode = { mode ->
                 viewModel.setThemeMode(mode)
+            },
+            currentVoiceGender = voiceGender,
+            onSetVoiceGender = { gender ->
+                viewModel.setVoiceGender(gender)
             }
         )
     }

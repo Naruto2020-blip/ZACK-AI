@@ -120,6 +120,11 @@ fun ChatMessageBubble(
         }
     }
 
+    val isPresentation = remember(displayContent) {
+        val lower = displayContent.lowercase()
+        lower.contains("diapositiva") || lower.contains("slide") || lower.contains("powerpoint") || lower.contains("presentación") || lower.contains("presentacion")
+    }
+
     val timeFormat12h = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
     val formattedTime = remember(message.timestamp) { timeFormat12h.format(Date(message.timestamp)) }

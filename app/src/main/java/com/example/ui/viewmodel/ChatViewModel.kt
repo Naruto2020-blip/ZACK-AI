@@ -73,6 +73,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _themeMode = MutableStateFlow(prefs.getString("theme_mode", "dark") ?: "dark")
     val themeMode: StateFlow<String> = _themeMode.asStateFlow()
 
+    private val _voiceGender = MutableStateFlow(prefs.getString("voice_gender", "female") ?: "female")
+    val voiceGender: StateFlow<String> = _voiceGender.asStateFlow()
+
     val sessions: StateFlow<List<ChatSessionEntity>> = repository.allSessions
         .stateIn(
             scope = viewModelScope,
@@ -548,6 +551,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun setThemeMode(mode: String) {
         _themeMode.value = mode
         prefs.edit().putString("theme_mode", mode).apply()
+    }
+
+    fun setVoiceGender(gender: String) {
+        _voiceGender.value = gender
+        prefs.edit().putString("voice_gender", gender).apply()
     }
 
     fun toggleFavorite(messageId: Long, isFavorite: Boolean) {

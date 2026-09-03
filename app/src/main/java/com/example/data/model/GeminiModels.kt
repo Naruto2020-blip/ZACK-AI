@@ -133,11 +133,13 @@ data class CascadeExecutionResult(
 )
 
 object QuotaResetHelper {
+    private val COSTA_RICA_TIMEZONE: TimeZone = TimeZone.getTimeZone("America/Costa_Rica") // UTC-6
+
     /**
-     * Calculates the time remaining until the next 00:00:00 UTC daily quota reset.
+     * Calculates the time remaining until the next 00:00:00 daily quota reset in Costa Rica time (UTC-6).
      */
     fun getTimeUntilNextUtcReset(): Pair<Long, String> {
-        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        val calendar = Calendar.getInstance(COSTA_RICA_TIMEZONE)
         val now = calendar.timeInMillis
         calendar.set(Calendar.HOUR_OF_DAY, 24)
         calendar.set(Calendar.MINUTE, 0)
@@ -154,7 +156,7 @@ object QuotaResetHelper {
     }
 
     fun getTodayUtcDateString(): String {
-        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        val calendar = Calendar.getInstance(COSTA_RICA_TIMEZONE)
         val y = calendar.get(Calendar.YEAR)
         val m = calendar.get(Calendar.MONTH) + 1
         val d = calendar.get(Calendar.DAY_OF_MONTH)

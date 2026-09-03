@@ -71,7 +71,9 @@ fun SettingsSheet(
     onSetPersona: (String) -> Unit,
     onSaveApiKey: ((String) -> Unit)? = null,
     currentThemeMode: String = "dark",
-    onSetThemeMode: (String) -> Unit = {}
+    onSetThemeMode: (String) -> Unit = {},
+    currentVoiceGender: String = "female",
+    onSetVoiceGender: (String) -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var apiKeyInput by androidx.compose.runtime.remember(uiState.currentApiKey) {
@@ -325,6 +327,76 @@ fun SettingsSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // =========================================================================
+            // 🔊 TIPO DE VOZ: Femenina / Masculina (Lectura en voz alta)
+            // =========================================================================
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(14.dp),
+                color = ObsidianCard
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "🔊 Tipo de Voz (Lectura)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimaryDark
+                    )
+                    Text(
+                        text = "Elige si prefieres escuchar las respuestas con voz femenina o masculina. La velocidad se mantiene en Normal.",
+                        color = TextSecondaryDark,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val voiceOptions = listOf(
+                            Triple("female", "Voz Femenina", "👩"),
+                            Triple("male", "Voz Masculina", "👨")
+                        )
+
+                        voiceOptions.forEach { (gender, label, emoji) ->
+                            val isSelected = currentVoiceGender == gender
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { onSetVoiceGender(gender) }
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) RadiantViolet else ObsidianCardBorder,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ),
+                                color = if (isSelected) RadiantViolet.copy(alpha = 0.15f) else if (isAppDark()) Color(0xFF0F172A) else ObsidianSubtle,
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Text(text = emoji, fontSize = 18.sp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = label,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) RadiantViolet else TextSecondaryDark
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Section 1: ⏱️ Renovación Diaria de Cuotas + Contador de tiempo
             Surface(
                 modifier = Modifier
@@ -361,7 +433,7 @@ fun SettingsSheet(
                                 color = TextPrimaryDark
                             )
                             Text(
-                                text = "Restablecimiento automático cada 24 horas (00:00 UTC)",
+                                text = "Restablecimiento automático cada 24h (Medianoche Costa Rica, UTC-6)",
                                 color = TextSecondaryDark,
                                 fontSize = 11.sp
                             )
