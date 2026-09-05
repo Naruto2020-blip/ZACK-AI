@@ -28,10 +28,13 @@ import kotlinx.coroutines.launch
 
 import android.net.Uri
 import com.example.data.local.ReminderTaskEntity
+import com.example.data.model.ShoppingCategory
+import com.example.data.model.ShoppingItem
 import com.example.util.FileProcessor
 import com.example.util.ProcessedAttachment
 import com.example.util.DocumentCleaner
 import com.example.util.DocumentSignatureDetector
+import com.example.util.ShoppingCategorizer
 import kotlinx.coroutines.flow.combine
 
 data class ChatUiState(
@@ -75,6 +78,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _voiceGender = MutableStateFlow(prefs.getString("voice_gender", "female") ?: "female")
     val voiceGender: StateFlow<String> = _voiceGender.asStateFlow()
+
+    private val _shoppingItems = MutableStateFlow<List<ShoppingItem>>(loadShoppingList())
+    val shoppingList: StateFlow<List<ShoppingItem>> = _shoppingItems.asStateFlow()
 
     val sessions: StateFlow<List<ChatSessionEntity>> = repository.allSessions
         .stateIn(
@@ -590,5 +596,87 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.clearCompletedTasks()
         }
+    }
+
+    // =========================================================================
+    // 🛒 GESTOR DE LISTA DE COMPRAS POR CATEGORÍAS (Persistente)
+    // =========================================================================
+
+    private fun loadShoppingList(): List<ShoppingItem> {
+        val jsonString = prefs.getString("shopping_items_json", null) ?: return emptyList()
+        return try {
+            val arr = org.json.JSONArray(jsonString)
+            val list = mutableListOf<ShoppingItem>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val id = obj.optString("id", java.util.UUID.randomUUID().toString())
+                val name = obj.optString("name", "")
+                val quantity = obj.optString("quantity", "")
+                val catId = obj.optString("category", ShoppingCategory.OTHERS.id)
+                val cat = ShoppingCategory.entries.find { it.id == catId } ?: ShoppingCategory.OTHERS
+                val isBought = obj.optBoolean("isBought", false)
+                val ts = obj.optLong("timestamp", System.currentTimeMillis())
+                if (name.isNotBlank()) {
+                    list.add(ShoppingItem(id, name, quantity, cat, isBought, ts))
+                }
+            }
+            list
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun saveShoppingList(items: List<ShoppingItem>) {
+        try {
+            val arr = org.json.JSONArray()
+            for (item in items) {
+                val obj = org.json.JSONObject().apply {
+                    put("id", item.id)
+                    put("name", item.name)
+                    put("quantity", item.quantity)
+                    put("category", item.category.id)
+                    put("isBought", item.isBought)
+                    put("timestamp", item.timestamp)
+                }
+                arr.put(obj)
+            }
+            prefs.edit().putString("shopping_items_json", arr.toString()).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun addShoppingItemsFromInput(rawInput: String) {
+        val parsed = ShoppingCategorizer.parseShoppingInput(rawInput)
+        if (parsed.isNotEmpty()) {
+            val updated = _shoppingItems.value + parsed
+            _shoppingItems.value = updated
+            saveShoppingList(updated)
+        }
+    }
+
+    fun toggleShoppingItem(id: String) {
+        val updated = _shoppingItems.value.map {
+            if (it.id == id) it.copy(isBought = !it.isBought) else it
+        }
+        _shoppingItems.value = updated
+        saveShoppingList(updated)
+    }
+
+    fun deleteShoppingItem(id: String) {
+        val updated = _shoppingItems.value.filter { it.id != id }
+        _shoppingItems.value = updated
+        saveShoppingList(updated)
+    }
+
+    fun clearBoughtShoppingItems() {
+        val updated = _shoppingItems.value.filter { !it.isBought }
+        _shoppingItems.value = updated
+        saveShoppingList(updated)
+    }
+
+    fun clearAllShoppingItems() {
+        _shoppingItems.value = emptyList()
+        saveShoppingList(emptyList())
     }
 }

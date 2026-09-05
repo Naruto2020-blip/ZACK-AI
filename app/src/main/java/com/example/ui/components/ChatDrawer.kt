@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -77,6 +78,8 @@ fun ChatDrawerContent(
     onSelectPersona: (String) -> Unit = {},
     onOpenFavorites: () -> Unit = {},
     onOpenTasks: () -> Unit = {},
+    onOpenShoppingList: () -> Unit = {},
+    shoppingItemsCount: Int = 0,
     onOpenDocTools: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -417,6 +420,58 @@ fun ChatDrawerContent(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 🛒 Lista de Compras por Categorías Shortcut
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onOpenShoppingList() }
+                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(10.dp))
+                .testTag("drawer_shopping_list_button"),
+            color = ObsidianCard,
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.ShoppingCart,
+                        contentDescription = "Lista de Compras",
+                        tint = AmberGold,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Lista de Compras",
+                        color = TextPrimaryDark,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                if (shoppingItemsCount > 0) {
+                    Surface(
+                        color = AmberGold.copy(alpha = 0.20f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = "$shoppingItemsCount",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AmberGold,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                        )
+                    }
+                }
             }
         }
 

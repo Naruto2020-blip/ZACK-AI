@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -88,6 +89,7 @@ import com.example.ui.components.DocumentToolsDialog
 import com.example.ui.components.FavoritesSheet
 import com.example.ui.components.FilePickerMenu
 import com.example.ui.components.SettingsSheet
+import com.example.ui.components.ShoppingListSheet
 import com.example.ui.components.TasksAndRemindersSheet
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.ChatViewModel
@@ -108,6 +110,7 @@ fun MainChatScreen(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val favoriteMessages by viewModel.favoriteMessages.collectAsStateWithLifecycle()
     val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
+    val shoppingList by viewModel.shoppingList.collectAsStateWithLifecycle()
     val voiceGender by viewModel.voiceGender.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
@@ -120,6 +123,7 @@ fun MainChatScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showFavoritesSheet by remember { mutableStateOf(false) }
     var showTasksSheet by remember { mutableStateOf(false) }
+    var showShoppingListSheet by remember { mutableStateOf(false) }
     var showDocToolsDialog by remember { mutableStateOf(false) }
 
     // TTS Setup & Speaking State
@@ -386,6 +390,11 @@ fun MainChatScreen(
                     coroutineScope.launch { drawerState.close() }
                     showTasksSheet = true
                 },
+                onOpenShoppingList = {
+                    coroutineScope.launch { drawerState.close() }
+                    showShoppingListSheet = true
+                },
+                shoppingItemsCount = shoppingList.size,
                 onOpenDocTools = {
                     coroutineScope.launch { drawerState.close() }
                     showDocToolsDialog = true
@@ -413,7 +422,9 @@ fun MainChatScreen(
                     title = "ZACK AI",
                     onMenuClick = { coroutineScope.launch { drawerState.open() } },
                     onNewChatClick = { viewModel.createNewSession() },
-                    onDocToolsClick = { showDocToolsDialog = true }
+                    onDocToolsClick = { showDocToolsDialog = true },
+                    onShoppingClick = { showShoppingListSheet = true },
+                    shoppingItemCount = shoppingList.size
                 )
 
                 // Chat Messages List or Empty Starter State
@@ -543,6 +554,29 @@ fun MainChatScreen(
         )
     }
 
+    // 🛒 Shopping List Generator Modal
+    if (showShoppingListSheet) {
+        ShoppingListSheet(
+            items = shoppingList,
+            onAddItems = { input ->
+                viewModel.addShoppingItemsFromInput(input)
+            },
+            onToggleItem = { id ->
+                viewModel.toggleShoppingItem(id)
+            },
+            onDeleteItem = { id ->
+                viewModel.deleteShoppingItem(id)
+            },
+            onClearBought = {
+                viewModel.clearBoughtShoppingItems()
+            },
+            onClearAll = {
+                viewModel.clearAllShoppingItems()
+            },
+            onDismiss = { showShoppingListSheet = false }
+        )
+    }
+
     // 🔔 Tasks & Reminders Bottom Sheet Modal
     if (showTasksSheet) {
         TasksAndRemindersSheet(
@@ -593,7 +627,9 @@ fun ChatTopBar(
     title: String,
     onMenuClick: () -> Unit,
     onNewChatClick: () -> Unit,
-    onDocToolsClick: () -> Unit = {}
+    onDocToolsClick: () -> Unit = {},
+    onShoppingClick: () -> Unit = {},
+    shoppingItemCount: Int = 0
 ) {
     Surface(
         color = ObsidianBackground,
@@ -628,6 +664,37 @@ fun ChatTopBar(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 🛒 Shopping List Button
+                IconButton(
+                    onClick = onShoppingClick,
+                    modifier = Modifier.testTag("top_shopping_list_button")
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Lista de Compras",
+                            tint = AmberGold
+                        )
+                        if (shoppingItemCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(14.dp)
+                                    .clip(CircleShape)
+                                    .background(AmberGold),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (shoppingItemCount > 9) "9+" else "$shoppingItemCount",
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = DarkBackground
+                                )
+                            }
+                        }
+                    }
+                }
+
                 IconButton(
                     onClick = onDocToolsClick,
                     modifier = Modifier.testTag("top_doc_tools_button")
@@ -659,9 +726,9 @@ fun EmptyChatState(
     onSuggestionSelected: (String) -> Unit
 ) {
     val suggestions = listOf(
+        "🛒 Crear Lista de Compras organizada por categorías",
         "⚡ Explica un concepto complejo en términos sencillos",
         "💻 Escribe una función Kotlin limpia para ordenar colecciones",
-        "🧠 Analiza los pros y contras de una arquitectura limpia",
         "✍️ Redacta un correo profesional solicitando una reunión de estrategia"
     )
 
