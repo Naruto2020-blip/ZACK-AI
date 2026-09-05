@@ -14,6 +14,7 @@ fun isAppDark(): Boolean = LocalAppIsDark.current
 val ElectricCyan = Color(0xFF00E5FF)
 val CyanAccent = Color(0xFF38BDF8)
 val RadiantViolet = Color(0xFF8B5CF6)
+val NeonPurple = Color(0xFFA855F7)
 val DeepIndigo = Color(0xFF6366F1)
 val NeonPink = Color(0xFFFF3385)
 
@@ -21,6 +22,7 @@ val NeonPink = Color(0xFFFF3385)
 val EmeraldGreen = Color(0xFF10B981)
 val AmberGold = Color(0xFFF59E0B)
 val RoseRed = Color(0xFFEF4444)
+val CrimsonRed = Color(0xFFDC2626)
 val SlateBlue = Color(0xFF3B82F6)
 
 // Raw Dark Theme Surfaces & Texts

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -80,6 +81,7 @@ fun ChatDrawerContent(
     onOpenTasks: () -> Unit = {},
     onOpenShoppingList: () -> Unit = {},
     shoppingItemsCount: Int = 0,
+    onOpenImageGenerator: () -> Unit = {},
     onOpenDocTools: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -503,6 +505,41 @@ fun ChatDrawerContent(
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "Herramientas de Documentos",
+                    color = TextPrimaryDark,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 🎨 Crear imagen con IA Shortcut (Solicitado dentro del menú hamburguesa)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onOpenImageGenerator() }
+                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(10.dp))
+                .testTag("drawer_image_generator_button"),
+            color = ObsidianCard,
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Palette,
+                    contentDescription = "Crear imagen con IA",
+                    tint = NeonPurple,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Crear imagen con IA",
                     color = TextPrimaryDark,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
