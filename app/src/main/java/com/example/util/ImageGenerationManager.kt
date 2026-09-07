@@ -39,6 +39,13 @@ object ImageGenerationManager {
             .build()
     }
 
+    // Modelos oficiales y verificados de Gemini para generación multimodal de imágenes (API v1beta)
+    private val VALID_IMAGE_MODELS = listOf(
+        "gemini-2.5-flash-image",
+        "gemini-3.1-flash-image-preview",
+        "gemini-3-pro-image-preview"
+    )
+
     /**
      * Genera una imagen con IA a partir de la descripción en español del usuario.
      * Sigue fielmente la instrucción, colores, cantidades, formas y estilos solicitados.
@@ -46,9 +53,14 @@ object ImageGenerationManager {
     suspend fun generateImage(
         userPrompt: String,
         aspectRatio: String = "1:1",
-        customApiKey: String? = null
+        customApiKey: String? = null,
+        context: android.content.Context? = null
     ): Result<GeneratedAiImage> = withContext(Dispatchers.IO) {
-        val apiKey = if (!customApiKey.isNullOrBlank()) customApiKey.trim() else GeminiClient.getApiKey()
+        val apiKey = when {
+            !customApiKey.isNullOrBlank() -> customApiKey.trim()
+            context != null -> GeminiClient.getStoredApiKey(context)
+            else -> GeminiClient.getApiKey()
+        }
 
         if (apiKey.isBlank()) {
             return@withContext Result.failure(
@@ -63,17 +75,12 @@ object ImageGenerationManager {
             append(". Produce this exact image adhering strictly to the user's description. Respect all specified colors, shapes, quantities, and aesthetic style faithfully. Clean, crisp, high-resolution, no watermarks, no unwanted text or borders.")
         }
 
-        // 1. Intentar con gemini-2.5-flash-image (modelo oficial para generación de imágenes)
-        val candidateModels = listOf(
-            "gemini-2.5-flash-image",
-            "gemini-3.1-flash-image-preview"
-        )
-
         var lastError: String? = null
 
-        for (model in candidateModels) {
+        // Iterar únicamente sobre los modelos de imagen válidos de Gemini
+        for (model in VALID_IMAGE_MODELS) {
             try {
-                Log.d(TAG, "Attempting image generation with model: $model")
+                Log.d(TAG, "Attempting image generation with valid model: $model")
                 val result = callGeminiImageEndpoint(model, engineeredPrompt, aspectRatio, apiKey)
                 if (result != null) {
                     val aiImage = GeneratedAiImage(
@@ -87,30 +94,40 @@ object ImageGenerationManager {
             } catch (e: Exception) {
                 Log.w(TAG, "Failed with model $model: ${e.message}")
                 lastError = e.message
+
+                // Si fue un límite temporal de tasa por minuto (429 / RESOURCE_EXHAUSTED), esperar 2.5s e intentar un reintento
+                if (e.message?.contains("429", ignoreCase = true) == true ||
+                    e.message?.contains("RESOURCE_EXHAUSTED", ignoreCase = true) == true ||
+                    e.message?.contains("quota", ignoreCase = true) == true) {
+                    try {
+                        Log.d(TAG, "Rate limit hit, waiting 2.5s before retry on $model...")
+                        kotlinx.coroutines.delay(2500)
+                        val retryResult = callGeminiImageEndpoint(model, engineeredPrompt, aspectRatio, apiKey)
+                        if (retryResult != null) {
+                            val aiImage = GeneratedAiImage(
+                                prompt = promptClean,
+                                bitmap = retryResult,
+                                aspectRatio = aspectRatio,
+                                modelUsed = model
+                            )
+                            return@withContext Result.success(aiImage)
+                        }
+                    } catch (retryEx: Exception) {
+                        Log.w(TAG, "Retry on $model also failed: ${retryEx.message}")
+                        lastError = retryEx.message
+                    }
+                }
             }
         }
 
-        // 2. Si fallaron los modelos Gemini Flash Image, intentar con imagen-3.0-generate-002 (Predict API)
-        try {
-            Log.d(TAG, "Attempting image generation with imagen-3.0-generate-002")
-            val imagenResult = callImagenPredictEndpoint("imagen-3.0-generate-002", engineeredPrompt, aspectRatio, apiKey)
-            if (imagenResult != null) {
-                val aiImage = GeneratedAiImage(
-                    prompt = promptClean,
-                    bitmap = imagenResult,
-                    aspectRatio = aspectRatio,
-                    modelUsed = "Imagen 3"
-                )
-                return@withContext Result.success(aiImage)
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed with Imagen 3: ${e.message}")
-            lastError = e.message
-        }
-
+        val isLimitZero = lastError?.contains("limit: 0", ignoreCase = true) == true
         val errorMessage = when {
-            lastError?.contains("quota", ignoreCase = true) == true ->
-                "Límite de cuota excedido para generación de imágenes. Intenta nuevamente en unos momentos."
+            isLimitZero ->
+                "Google no asigna cuota de imágenes a la clave genérica de desarrollo (límite 0 de peticiones). Para generar imágenes, ingresa tu propia clave de Gemini de Google AI Studio tocando el botón 'Configurar API Key' abajo."
+            lastError?.contains("quota", ignoreCase = true) == true ||
+            lastError?.contains("429", ignoreCase = true) == true ||
+            lastError?.contains("RESOURCE_EXHAUSTED", ignoreCase = true) == true ->
+                "Google indica que la clave actual no tiene cuota activa para generación de imágenes (límite de peticiones de Google alcanzado). Ingresa tu clave personal de Gemini para continuar."
             lastError?.contains("API_KEY_INVALID", ignoreCase = true) == true ->
                 "Clave de API de Gemini no válida. Revisa tus credenciales en Ajustes."
             !lastError.isNullOrBlank() ->
@@ -130,7 +147,22 @@ object ImageGenerationManager {
     ): Bitmap? {
         val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
 
-        val requestJson = JSONObject().apply {
+        // Intento 1: Con responseModalities ["TEXT", "IMAGE"] y imageConfig { aspectRatio }
+        try {
+            val requestBodyJson = buildRequestBody(prompt, aspectRatio, includeImageConfig = true)
+            val bitmap = executeImageRequest(url, requestBodyJson, apiKey)
+            if (bitmap != null) return bitmap
+        } catch (e: Exception) {
+            Log.w(TAG, "Standard payload attempt failed on $model: ${e.message}. Retrying with simplified payload...")
+        }
+
+        // Intento 2: Si el endpoint rechaza imageConfig, enviar solo responseModalities ["IMAGE"]
+        val simplifiedBody = buildSimplifiedRequestBody(prompt)
+        return executeImageRequest(url, simplifiedBody, apiKey)
+    }
+
+    private fun buildRequestBody(prompt: String, aspectRatio: String, includeImageConfig: Boolean): String {
+        val root = JSONObject().apply {
             val contentsArr = JSONArray().apply {
                 val contentObj = JSONObject().apply {
                     val partsArr = JSONArray().apply {
@@ -152,18 +184,51 @@ object ImageGenerationManager {
                 }
                 put("responseModalities", modalities)
 
-                val imageConfig = JSONObject().apply {
-                    put("aspectRatio", aspectRatio)
-                    put("imageSize", "1K")
+                if (includeImageConfig && aspectRatio.isNotBlank()) {
+                    val imageConfig = JSONObject().apply {
+                        put("aspectRatio", aspectRatio)
+                    }
+                    put("imageConfig", imageConfig)
                 }
-                put("imageConfig", imageConfig)
             }
             put("generationConfig", genConfig)
         }
+        return root.toString()
+    }
 
-        val requestBody = requestJson.toString().toRequestBody(JSON_MEDIA_TYPE)
+    private fun buildSimplifiedRequestBody(prompt: String): String {
+        val root = JSONObject().apply {
+            val contentsArr = JSONArray().apply {
+                val contentObj = JSONObject().apply {
+                    val partsArr = JSONArray().apply {
+                        val partObj = JSONObject().apply {
+                            put("text", prompt)
+                        }
+                        put(partObj)
+                    }
+                    put("parts", partsArr)
+                }
+                put(contentObj)
+            }
+            put("contents", contentsArr)
+
+            val genConfig = JSONObject().apply {
+                val modalities = JSONArray().apply {
+                    put("IMAGE")
+                }
+                put("responseModalities", modalities)
+            }
+            put("generationConfig", genConfig)
+        }
+        return root.toString()
+    }
+
+    private fun executeImageRequest(url: String, jsonPayload: String, apiKey: String): Bitmap? {
+        val requestBody = jsonPayload.toRequestBody(JSON_MEDIA_TYPE)
         val request = Request.Builder()
             .url(url)
+            .addHeader("x-goog-api-key", apiKey)
+            .addHeader("Content-Type", "application/json")
             .post(requestBody)
             .build()
 
@@ -208,63 +273,6 @@ object ImageGenerationManager {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing Gemini image response", e)
-        }
-        return null
-    }
-
-    private fun callImagenPredictEndpoint(
-        model: String,
-        prompt: String,
-        aspectRatio: String,
-        apiKey: String
-    ): Bitmap? {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:predict?key=$apiKey"
-
-        val requestJson = JSONObject().apply {
-            val instancesArr = JSONArray().apply {
-                val instObj = JSONObject().apply {
-                    put("prompt", prompt)
-                }
-                put(instObj)
-            }
-            put("instances", instancesArr)
-
-            val paramsObj = JSONObject().apply {
-                put("sampleCount", 1)
-                put("aspectRatio", aspectRatio)
-            }
-            put("parameters", paramsObj)
-        }
-
-        val requestBody = requestJson.toString().toRequestBody(JSON_MEDIA_TYPE)
-        val request = Request.Builder()
-            .url(url)
-            .post(requestBody)
-            .build()
-
-        val response = httpClient.newCall(request).execute()
-        val responseBody = response.body?.string() ?: ""
-
-        if (!response.isSuccessful) {
-            Log.e(TAG, "Imagen predict error ${response.code}: $responseBody")
-            val errObj = try { JSONObject(responseBody).optJSONObject("error") } catch (e: Exception) { null }
-            val message = errObj?.optString("message") ?: "HTTP ${response.code}"
-            throw Exception(message)
-        }
-
-        try {
-            val root = JSONObject(responseBody)
-            val predictions = root.optJSONArray("predictions") ?: return null
-            if (predictions.length() > 0) {
-                val pred = predictions.getJSONObject(0)
-                val base64 = pred.optString("bytesBase64Encoded", "")
-                if (base64.isNotBlank()) {
-                    val bytes = Base64.decode(base64, Base64.DEFAULT)
-                    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing Imagen prediction response", e)
         }
         return null
     }

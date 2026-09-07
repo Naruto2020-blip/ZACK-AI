@@ -81,6 +81,17 @@ object GeminiClient {
         prefs.edit().putString(KEY_CUSTOM_API_KEY, trimmed).apply()
     }
 
+    fun resetToDefaultApiKey(context: android.content.Context) {
+        customApiKeyCache = null
+        val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        prefs.edit().remove(KEY_CUSTOM_API_KEY).apply()
+    }
+
+    fun hasCustomApiKey(context: android.content.Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        return !prefs.getString(KEY_CUSTOM_API_KEY, null).isNullOrBlank()
+    }
+
     fun getStoredApiKey(context: android.content.Context): String {
         if (!customApiKeyCache.isNullOrBlank()) {
             return customApiKeyCache!!

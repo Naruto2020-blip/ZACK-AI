@@ -46,7 +46,9 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -65,6 +67,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -112,6 +115,8 @@ fun ImageGeneratorSheet(
     var currentGeneratedImage by remember { mutableStateOf<GeneratedAiImage?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showFullscreenZoom by remember { mutableStateOf(false) }
+    var showApiKeyDialog by remember { mutableStateOf(false) }
+    var customKeyInput by remember { mutableStateOf("") }
 
     // Historial de creaciones de esta sesión
     val sessionHistory = remember { mutableStateListOf<GeneratedAiImage>() }
@@ -152,7 +157,8 @@ fun ImageGeneratorSheet(
         coroutineScope.launch {
             val result = ImageGenerationManager.generateImage(
                 userPrompt = promptText,
-                aspectRatio = selectedAspectRatio
+                aspectRatio = selectedAspectRatio,
+                context = context
             )
             isGenerating = false
 
@@ -233,15 +239,30 @@ fun ImageGeneratorSheet(
                         }
                     }
 
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.testTag("close_image_generator_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Cerrar",
-                            tint = TextSecondaryDark
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = {
+                                customKeyInput = com.example.data.remote.GeminiClient.getStoredApiKey(context)
+                                showApiKeyDialog = true
+                            },
+                            modifier = Modifier.testTag("configure_api_key_image_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VpnKey,
+                                contentDescription = "Configurar clave de API",
+                                tint = NeonPurple
+                            )
+                        }
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.testTag("close_image_generator_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar",
+                                tint = TextSecondaryDark
+                            )
+                        }
                     }
                 }
             }
@@ -452,22 +473,47 @@ fun ImageGeneratorSheet(
                             .fillMaxWidth()
                             .padding(vertical = 8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "⚠️ $error",
-                                color = TextPrimaryDark,
-                                fontSize = 13.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                            IconButton(onClick = { errorMessage = null }) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "⚠️ $error",
+                                    color = TextPrimaryDark,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(onClick = { errorMessage = null }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Cerrar",
+                                        tint = TextSecondaryDark,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    customKeyInput = com.example.data.remote.GeminiClient.getStoredApiKey(context)
+                                    showApiKeyDialog = true
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("open_api_key_dialog_from_error")
+                            ) {
                                 Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Cerrar",
-                                    tint = TextSecondaryDark,
-                                    modifier = Modifier.size(16.dp)
+                                    imageVector = Icons.Default.VpnKey,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Configurar mi clave de Gemini API",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
                                 )
                             }
                         }
@@ -820,5 +866,114 @@ fun ImageGeneratorSheet(
                 }
             }
         }
+    }
+
+    // =========================================================================
+    // DIÁLOGO PARA CONFIGURAR LA CLAVE DE API DE GEMINI
+    // =========================================================================
+    if (showApiKeyDialog) {
+        AlertDialog(
+            onDismissRequest = { showApiKeyDialog = false },
+            containerColor = ObsidianCard,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.VpnKey,
+                        contentDescription = null,
+                        tint = NeonPurple,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Clave de API de Gemini",
+                        color = TextPrimaryDark,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Para generar imágenes con IA, Google requiere tu clave de API personal (la clave predeterminada de prueba tiene cuota 0 de imágenes asignada por Google).\n\nPuedes obtenerla gratis en Google AI Studio (aistudio.google.com/apikey) y pegarla aquí:",
+                        color = TextSecondaryDark,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = customKeyInput,
+                        onValueChange = { customKeyInput = it },
+                        placeholder = { Text("Pega tu clave (AIzaSy...)", color = TextSecondaryDark.copy(alpha = 0.6f)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = NeonPurple,
+                            unfocusedBorderColor = ObsidianCardBorder,
+                            focusedTextColor = TextPrimaryDark,
+                            unfocusedTextColor = TextPrimaryDark,
+                            focusedContainerColor = ObsidianSurface,
+                            unfocusedContainerColor = ObsidianSurface
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("custom_api_key_input_field"),
+                        singleLine = true
+                    )
+                    if (com.example.data.remote.GeminiClient.hasCustomApiKey(context)) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        TextButton(
+                            onClick = {
+                                com.example.data.remote.GeminiClient.resetToDefaultApiKey(context)
+                                customKeyInput = ""
+                                showApiKeyDialog = false
+                                errorMessage = null
+                                Toast.makeText(context, "Se restableció la clave predeterminada de la app", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.align(Alignment.Start)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = ElectricCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Restaurar clave original de la app",
+                                color = ElectricCyan,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val trimmed = customKeyInput.trim()
+                        if (trimmed.isNotBlank()) {
+                            com.example.data.remote.GeminiClient.saveCustomApiKey(context, trimmed)
+                            showApiKeyDialog = false
+                            errorMessage = null
+                            Toast.makeText(context, "Clave guardada exitosamente", Toast.LENGTH_SHORT).show()
+                            if (promptText.isNotBlank()) {
+                                triggerGeneration()
+                            }
+                        } else {
+                            Toast.makeText(context, "Por favor pega una clave válida", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.testTag("save_custom_api_key_button")
+                ) {
+                    Text("Guardar y Probar", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showApiKeyDialog = false }) {
+                    Text("Cancelar", color = TextSecondaryDark)
+                }
+            }
+        )
     }
 }
