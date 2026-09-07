@@ -40,12 +40,15 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -77,7 +80,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -89,6 +94,7 @@ import com.example.ui.components.DocumentToolsDialog
 import com.example.ui.components.FavoritesSheet
 import com.example.ui.components.FilePickerMenu
 import com.example.ui.components.ImageGeneratorSheet
+import com.example.ui.components.RealtimeCameraSheet
 import com.example.ui.components.SettingsSheet
 import com.example.ui.components.ShoppingListSheet
 import com.example.ui.components.TasksAndRemindersSheet
@@ -127,6 +133,7 @@ fun MainChatScreen(
     var showShoppingListSheet by remember { mutableStateOf(false) }
     var showImageGeneratorSheet by remember { mutableStateOf(false) }
     var showDocToolsDialog by remember { mutableStateOf(false) }
+    var showRealtimeCameraSheet by remember { mutableStateOf(false) }
 
     // TTS Setup & Speaking State
     var speakingMessageId by remember { mutableStateOf<String?>(null) }
@@ -404,6 +411,10 @@ fun MainChatScreen(
                 onOpenDocTools = {
                     coroutineScope.launch { drawerState.close() }
                     showDocToolsDialog = true
+                },
+                onOpenRealtimeCamera = {
+                    coroutineScope.launch { drawerState.close() }
+                    showRealtimeCameraSheet = true
                 }
             )
         }
@@ -430,8 +441,79 @@ fun MainChatScreen(
                     onNewChatClick = { viewModel.createNewSession() },
                     onDocToolsClick = { showDocToolsDialog = true },
                     onShoppingClick = { showShoppingListSheet = true },
-                    shoppingItemCount = shoppingList.size
+                    shoppingItemCount = shoppingList.size,
+                    onCameraLensClick = { showRealtimeCameraSheet = true }
                 )
+
+                // 🧠 Banner de Predicciones y Sugerencias de Hábitos Inteligentes
+                uiState.proactiveSuggestion?.let { suggestion ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .testTag("proactive_habit_banner"),
+                        shape = RoundedCornerShape(12.dp),
+                        color = ObsidianCard,
+                        border = BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.6f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("💡", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = suggestion.text,
+                                    color = TextPrimaryDark,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 16.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = ElectricCyan,
+                                        modifier = Modifier.clickable { viewModel.acceptProactiveSuggestion() }
+                                    ) {
+                                        Text(
+                                            text = "Sí, por favor",
+                                            color = DarkBackground,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "Ahora no",
+                                        color = TextSecondaryDark,
+                                        fontSize = 11.sp,
+                                        modifier = Modifier
+                                            .clickable { viewModel.dismissProactiveSuggestion() }
+                                            .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = { viewModel.dismissProactiveSuggestion() },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Cerrar",
+                                    tint = TextSecondaryDark,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
 
                 // Chat Messages List or Empty Starter State
                 Box(
@@ -489,6 +571,70 @@ fun MainChatScreen(
                     }
                 )
 
+                // 🧠 Chip de Confirmación de Recordatorio Inteligente a la hora habitual
+                uiState.detectedCommitment?.let { commitment ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .testTag("detected_commitment_chip"),
+                        shape = RoundedCornerShape(12.dp),
+                        color = ObsidianCard,
+                        border = BorderStroke(1.dp, AmberGold.copy(alpha = 0.7f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("⏰", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "¿Quieres que te lo recuerde a las ${commitment.suggestedHourText} como acostumbras?",
+                                    color = AmberGold,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = commitment.title,
+                                    color = TextPrimaryDark,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Button(
+                                onClick = { viewModel.acceptDetectedCommitment() },
+                                colors = ButtonDefaults.buttonColors(containerColor = AmberGold),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text(
+                                    text = "Recordármelo",
+                                    color = DarkBackground,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.dismissDetectedCommitment() },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Ignorar",
+                                    tint = TextSecondaryDark,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Bottom Chat Input Field Bar (Clean & Focused)
                 ChatInputBar(
                     inputText = inputText,
@@ -515,6 +661,9 @@ fun MainChatScreen(
                     },
                     onTakePhoto = { uri ->
                         viewModel.attachFileUri(uri)
+                    },
+                    onOpenRealtimeCamera = {
+                        showRealtimeCameraSheet = true
                     },
                     isGenerating = uiState.isGenerating,
                     isRecordingAudio = isRecordingAudio,
@@ -623,6 +772,21 @@ fun MainChatScreen(
             }
         )
     }
+
+    // 📷 Reconocimiento con Cámara en Tiempo Real (IA Lens)
+    if (showRealtimeCameraSheet) {
+        RealtimeCameraSheet(
+            onDismiss = { showRealtimeCameraSheet = false },
+            onSendResultToChat = { summary, bitmap ->
+                showRealtimeCameraSheet = false
+                viewModel.sendCameraScanResult(summary, bitmap)
+            },
+            onCreateReminder = { title ->
+                viewModel.addTask(title)
+                viewModel.clearSnackbar()
+            }
+        )
+    }
 }
 
 private fun cleanMarkdownForSpeech(text: String): String {
@@ -642,7 +806,8 @@ fun ChatTopBar(
     onNewChatClick: () -> Unit,
     onDocToolsClick: () -> Unit = {},
     onShoppingClick: () -> Unit = {},
-    shoppingItemCount: Int = 0
+    shoppingItemCount: Int = 0,
+    onCameraLensClick: () -> Unit = {}
 ) {
     Surface(
         color = ObsidianBackground,
@@ -677,6 +842,18 @@ fun ChatTopBar(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 📷 Reconocimiento con Cámara en Tiempo Real (Visión Lens)
+                IconButton(
+                    onClick = onCameraLensClick,
+                    modifier = Modifier.testTag("top_camera_lens_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "Cámara en Tiempo Real",
+                        tint = ElectricCyan
+                    )
+                }
+
                 // 🛒 Shopping List Button
                 IconButton(
                     onClick = onShoppingClick,
@@ -858,6 +1035,7 @@ fun ChatInputBar(
     onVoiceRecord: () -> Unit,
     onFileSelected: (android.net.Uri) -> Unit,
     onTakePhoto: (android.net.Uri) -> Unit,
+    onOpenRealtimeCamera: () -> Unit = {},
     isGenerating: Boolean,
     isRecordingAudio: Boolean = false,
     recordingDurationSeconds: Int = 0,
@@ -978,7 +1156,8 @@ fun ChatInputBar(
                 // 1. Attach File / Camera button (📎 / ➕)
                 FilePickerMenu(
                     onFileSelected = onFileSelected,
-                    onTakePhoto = onTakePhoto
+                    onTakePhoto = onTakePhoto,
+                    onOpenRealtimeCamera = onOpenRealtimeCamera
                 )
 
                 // 2. Mic button (🎤 Dictado a texto en el campo)

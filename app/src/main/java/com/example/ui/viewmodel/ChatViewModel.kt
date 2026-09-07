@@ -54,7 +54,9 @@ data class ChatUiState(
     val snackbarMessage: String? = null,
     val isApiKeyConfigured: Boolean = false,
     val currentApiKey: String = "",
-    val attachedFile: ProcessedAttachment? = null
+    val attachedFile: ProcessedAttachment? = null,
+    val proactiveSuggestion: com.example.util.SmartHabitsManager.SmartSuggestion? = null,
+    val detectedCommitment: com.example.util.SmartHabitsManager.DetectedCommitment? = null
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -146,6 +148,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         5. NUNCA agregues secciones de 'Recomendaciones', 'Notas', 'Consejos' o 'Aclaraciones' al final.
         6. Los campos a rellenar deben ser limpios y directos entre corchetes SIN ejemplos ni explicaciones: escribe exactamente [Lugar], [Fecha], [Tu Nombre Completo], [Cédula], [Dirección], [Teléfono], etc. (NUNCA agregues 'ej:' ni explicaciones).
         7. El resultado debe ser directamente la carta limpia, oficial y profesional.
+
+        🧠 PREDICCIONES, RECORDATORIOS INTELIGENTES Y TONO:
+        - Habla siempre en español claro, sencillo y con tono amable.
+        - Aprende de los hábitos del usuario: recuerda qué pide, a qué hora, qué días y con qué frecuencia.
+        - Sugiere antes de que te lo pida: si detectas un patrón repetido, avisa amablemente: "Sueles hacer esto los lunes, ¿te ayudo?".
+        - Si el usuario menciona una tarea, cita, encargo o compromiso (ej: "tengo que...", "debo...", "tengo reunión mañana"), pregúntale amablemente al final de tu respuesta de forma breve:
+          "¿Quieres que te lo recuerde a la hora que acostumbras?"
+        - Anticipa necesidades: si se acerca una fecha importante o se agota algo que use seguido, avisa con tiempo.
+        - No seas insistente: si el usuario no pide recordatorio o ignora una sugerencia, reduce la frecuencia y no repitas la pregunta.
         """.trimIndent()
         return if (basePersona.isNotBlank()) "$basePersona\n$documentRule" else documentRule
     }
@@ -154,6 +165,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         startDailyResetTimer()
         observeQuotaRecords()
         initDefaultSession()
+        refreshProactiveSuggestion()
     }
 
     private fun initDefaultSession() {
@@ -365,6 +377,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     repository.insertTask(taskTitle)
                 }
             }
+
+            // 🧠 Registrar hábito de uso para predicciones futuras
+            com.example.util.SmartHabitsManager.recordUserInteraction(getApplication(), effectivePrompt)
+
+            // 🧠 Detectar compromisos o tareas mencionadas para sugerir recordatorio a la hora habitual
+            val detectedCommitment = com.example.util.SmartHabitsManager.detectCommitmentInText(getApplication(), effectivePrompt)
+            _uiState.value = _uiState.value.copy(detectedCommitment = detectedCommitment)
 
             // Prepare prompt content: if text was extracted from docx/txt/pdf, append it directly into the prompt
             val fullPromptForModel = if (currentAttached != null && !currentAttached.extractedText.isNullOrBlank()) {
@@ -678,5 +697,65 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun clearAllShoppingItems() {
         _shoppingItems.value = emptyList()
         saveShoppingList(emptyList())
+    }
+
+    // =========================================================================
+    // 🧠 PREDICCIONES Y RECORDATORIOS INTELIGENTES
+    // =========================================================================
+
+    fun refreshProactiveSuggestion() {
+        val suggestion = com.example.util.SmartHabitsManager.getProactiveSuggestion(getApplication())
+        _uiState.value = _uiState.value.copy(proactiveSuggestion = suggestion)
+    }
+
+    fun dismissProactiveSuggestion() {
+        _uiState.value.proactiveSuggestion?.let {
+            com.example.util.SmartHabitsManager.onSuggestionDismissed(getApplication(), it.id)
+        }
+        _uiState.value = _uiState.value.copy(proactiveSuggestion = null)
+    }
+
+    fun acceptProactiveSuggestion() {
+        val sug = _uiState.value.proactiveSuggestion ?: return
+        com.example.util.SmartHabitsManager.onSuggestionAccepted(getApplication(), sug.id)
+        _uiState.value = _uiState.value.copy(proactiveSuggestion = null)
+        sendMessage(sug.promptToSend)
+    }
+
+    fun dismissDetectedCommitment() {
+        _uiState.value = _uiState.value.copy(detectedCommitment = null)
+    }
+
+    fun acceptDetectedCommitment() {
+        val c = _uiState.value.detectedCommitment ?: return
+        addTask(c.title, c.estimatedTimestamp)
+        _uiState.value = _uiState.value.copy(
+            detectedCommitment = null,
+            snackbarMessage = "Recordatorio guardado a las ${c.suggestedHourText}"
+        )
+    }
+
+    // =========================================================================
+    // 📷 RESULTADOS DE VISIÓN POR CÁMARA
+    // =========================================================================
+
+    fun sendCameraScanResult(summaryPrompt: String, bitmap: android.graphics.Bitmap?) {
+        if (bitmap != null) {
+            val outputStream = java.io.ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outputStream)
+            val jpegBytes = outputStream.toByteArray()
+            val base64 = android.util.Base64.encodeToString(jpegBytes, android.util.Base64.NO_WRAP)
+            _uiState.value = _uiState.value.copy(
+                attachedFile = ProcessedAttachment(
+                    uri = Uri.EMPTY,
+                    name = "escaneo_camara.jpg",
+                    mimeType = "image/jpeg",
+                    sizeBytes = jpegBytes.size.toLong(),
+                    isImage = true,
+                    base64Data = base64
+                )
+            )
+        }
+        sendMessage(summaryPrompt)
     }
 }

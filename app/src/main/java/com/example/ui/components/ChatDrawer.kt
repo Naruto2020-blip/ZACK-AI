@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -83,6 +84,7 @@ fun ChatDrawerContent(
     shoppingItemsCount: Int = 0,
     onOpenImageGenerator: () -> Unit = {},
     onOpenDocTools: () -> Unit = {},
+    onOpenRealtimeCamera: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
@@ -544,6 +546,57 @@ fun ChatDrawerContent(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 📷 Reconocimiento con Cámara en Tiempo Real Shortcut
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onOpenRealtimeCamera() }
+                .border(1.dp, ElectricCyan.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .testTag("drawer_realtime_camera_button"),
+            color = ObsidianCard,
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "Cámara en Tiempo Real",
+                        tint = ElectricCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Cámara en Tiempo Real",
+                        color = TextPrimaryDark,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = ElectricCyan.copy(alpha = 0.18f),
+                    border = BorderStroke(0.5.dp, ElectricCyan.copy(alpha = 0.6f))
+                ) {
+                    Text(
+                        text = "LENS",
+                        color = ElectricCyan,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
 
