@@ -55,8 +55,26 @@ object CameraLensManager {
             title = "Facturas y Recibos",
             subtitle = "Extrae montos, fechas, nombres y desglose",
             emoji = "🧾"
+        ),
+        MEDICINE(
+            title = "Medicamentos",
+            subtitle = "Fármacos, dosis, principios activos y precauciones",
+            emoji = "💊"
         )
     }
+
+    data class MedicineDetails(
+        val commercialName: String? = null,
+        val activeIngredient: String? = null,
+        val concentration: String? = null,
+        val laboratory: String? = null,
+        val uses: String? = null,
+        val recommendedDosage: String? = null,
+        val contraindications: String? = null,
+        val precautions: String? = null,
+        val barcodeNumber: String? = null,
+        val disclaimer: String = "Solo información de referencia — no sustituye indicación médica profesional"
+    )
 
     data class BarcodeDetails(
         val codeNumber: String,
@@ -77,7 +95,8 @@ object CameraLensManager {
         val detectedUrl: String? = null,
         val isCommitment: Boolean = false,
         val latencyMs: Long = 0L,
-        val barcodeDetails: BarcodeDetails? = null
+        val barcodeDetails: BarcodeDetails? = null,
+        val medicineDetails: MedicineDetails? = null
     )
 
     private data class ScannedCode(
@@ -152,6 +171,33 @@ object CameraLensManager {
                    - Método de pago / Número de recibo (si aparece):
                 2. Responde rápido y directo sin rodeos. Habla en español claro, sencillo y con tono amable.
             """.trimIndent()
+
+            LensMode.MEDICINE -> """
+                Analiza este medicamento (caja, blíster, frasco, ampolla o prospecto) con visión farmacológica especializada.
+                REGLAS ESTRICTAS:
+                1. Identifica y presenta claramente con viñetas:
+                   • Nombre comercial: (ej. Panadol, Tabcin, Ibuprofeno MK, Amoxil, etc.)
+                   • Principio activo: (Denominación Común Internacional)
+                   • Concentración y presentación: (ej. 500 mg tabletas, jarabe 250mg/5ml, cápsulas)
+                   • Laboratorio / Fabricante: (si es legible en el empaque)
+                   • Ámbito: fármaco disponible en Costa Rica (farmacias CCSS o privadas como Fischel, Sucre, La Bomba) y a nivel internacional.
+                2. Desarrolla de forma limpia y estructurada las siguientes 4 secciones indispensables:
+                   📌 ¿PARA QUÉ SIRVE?
+                   Explica claramente las indicaciones terapéuticas principales y qué síntomas o dolencias alivia.
+                   
+                   📌 DOSIS RECOMENDADA DE REFERENCIA
+                   Indica la posología habitual estándar orientativa para adultos según prospecto oficial (siempre con la advertencia de verificar indicación facultativa).
+                   
+                   📌 CONTRAINDICACIONES
+                   Detalla en qué casos NO debe consumirse (alergias, úlceras, embarazo, hipertensión, insuficiencia renal/hepática).
+                   
+                   📌 PRECAUCIONES E INTERACCIONES
+                   Alerta sobre interacciones clave con alcohol, alimentos u otros medicamentos (anticoagulantes, sedantes, etc.), y precauciones al conducir.
+                3. Si detectas un código de barras o registro sanitario, confirma que coincide con el medicamento oficial.
+                4. Incluye SIEMPRE esta aclaración visible y obligatoria:
+                   ⚠️ Solo información de referencia — no sustituye indicación médica profesional
+                5. Responde con lenguaje claro, accesible, formal y estructurado en español.
+            """.trimIndent()
         }
     }
 
@@ -221,7 +267,21 @@ object CameraLensManager {
             )
         }
 
-        val prompt = buildPromptForMode(mode)
+        // Si es reconocimiento de medicamentos y hay bitmap, intentar leer código de barras para confirmación oficial
+        var medicineScannedCode: ScannedCode? = null
+        if (mode == LensMode.MEDICINE && bitmap != null) {
+            try {
+                medicineScannedCode = scanBarcodeWithMlKit(bitmap)
+            } catch (e: Exception) {
+                // Continuar con análisis visual
+            }
+        }
+
+        var prompt = buildPromptForMode(mode)
+        if (mode == LensMode.MEDICINE && medicineScannedCode != null) {
+            prompt += "\n\n[CÓDIGO DE BARRAS OFICIAL DETECTADO EN EL EMPAQUE]: ${medicineScannedCode.codeNumber} (${medicineScannedCode.codeType}). Úsalo para corroborar el nombre comercial y registro oficial."
+        }
+
         val systemInstruction = """
             Eres el motor de reconocimiento visual en tiempo real de ZACK AI.
             REGLAS FUNDAMENTALES:
@@ -297,7 +357,15 @@ object CameraLensManager {
                             LensMode.OBJECTS_NATURE -> "Objeto / Naturaleza"
                             LensMode.QR_BARCODE -> "Código QR / Barras"
                             LensMode.INVOICE_RECEIPT -> "Datos de Factura / Recibo"
+                            LensMode.MEDICINE -> "Reconocimiento de Medicamento"
                         }
+
+                        val medDetails = if (mode == LensMode.MEDICINE) {
+                            MedicineDetails(
+                                barcodeNumber = medicineScannedCode?.codeNumber,
+                                disclaimer = "Solo información de referencia — no sustituye indicación médica profesional"
+                            )
+                        } else null
 
                         return@withContext Result.success(
                             LensAnalysisResult(
@@ -306,7 +374,8 @@ object CameraLensManager {
                                 detectedCategory = categoryLabel,
                                 detectedUrl = detectedUrl,
                                 isCommitment = hasCommitment,
-                                latencyMs = latency
+                                latencyMs = latency,
+                                medicineDetails = medDetails
                             )
                         )
                     }

@@ -706,6 +706,67 @@ fun RealtimeCameraSheet(
                                         )
                                     }
                                 }
+                            } else if (res.mode == CameraLensManager.LensMode.MEDICINE) {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    // ⚠️ ACLARACIÓN MÉDICA OBLIGATORIA Y VISIBLE
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = AmberGold.copy(alpha = 0.15f),
+                                        border = BorderStroke(1.2.dp, AmberGold.copy(alpha = 0.8f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("⚠️", fontSize = 16.sp)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Solo información de referencia — no sustituye indicación médica profesional",
+                                                color = AmberGold,
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                lineHeight = 16.sp
+                                            )
+                                        }
+                                    }
+
+                                    // Si trae código de barras leído y corroborado
+                                    val barcodeNum = res.medicineDetails?.barcodeNumber
+                                    if (!barcodeNum.isNullOrBlank()) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color(0xFF0F172A),
+                                            border = BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.5f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text("🏁 Código de barras leído: ", color = TextSecondaryDark, fontSize = 11.sp)
+                                                    Text(
+                                                        text = barcodeNum,
+                                                        color = ElectricCyan,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontFamily = FontFamily.Monospace
+                                                    )
+                                                }
+                                                Text("CONFIRMADO", color = ElectricCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+
+                                    Text(
+                                        text = res.textResult,
+                                        color = TextPrimaryDark,
+                                        fontSize = 14.sp,
+                                        lineHeight = 21.sp
+                                    )
+                                }
                             } else {
                                 Text(
                                     text = res.textResult,
