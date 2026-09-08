@@ -90,10 +90,14 @@ import com.example.ui.theme.TextSecondaryDark
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.TimeUnit
 
 enum class ServiceCategory(val label: String, val emoji: String, val icon: ImageVector) {
     TODOS("Todos", "🌟", Icons.Default.Public),
@@ -176,8 +180,9 @@ fun PublicServicesSheet(
     // Consulta con IA en tiempo real para cualquier trámite o sede
     var aiQueryText by remember { mutableStateOf("") }
     var isAiLoading by remember { mutableStateOf(false) }
+    var searchStatusMessage by remember { mutableStateOf("Buscando información actualizada...") }
     var aiResponseText by remember { mutableStateOf<String?>(null) }
-    var showAiQueryBox by remember { mutableStateOf(false) }
+    var showAiQueryBox by remember { mutableStateOf(true) }
 
     // Reloj dinámico en tiempo real para el país seleccionado
     var currentCountryTimeText by remember { mutableStateOf("") }
@@ -404,11 +409,11 @@ fun PublicServicesSheet(
                         .testTag("public_services_search_field")
                 )
 
-                // Botón para consulta personalizada con IA
+                // Botón para consulta personalizada con IA / Búsqueda en Internet
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = if (showAiQueryBox) NeonPurple else ObsidianCard,
-                    border = BorderStroke(1.dp, if (showAiQueryBox) NeonPurple else ObsidianCardBorder),
+                    color = if (showAiQueryBox) ElectricCyan.copy(alpha = 0.18f) else ObsidianCard,
+                    border = BorderStroke(1.dp, if (showAiQueryBox) ElectricCyan else ObsidianCardBorder),
                     modifier = Modifier
                         .height(48.dp)
                         .clickable { showAiQueryBox = !showAiQueryBox }
@@ -418,143 +423,208 @@ fun PublicServicesSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (showAiQueryBox) "Cerrar IA" else "⚡ Consulta IA",
-                            color = if (showAiQueryBox) Color.White else ElectricCyan,
-                            fontSize = 11.sp,
+                            text = if (showAiQueryBox) "Ocultar Buscador" else "🔍 Buscar en Internet",
+                            color = if (showAiQueryBox) ElectricCyan else TextPrimaryDark,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
 
-            // Caja de Consulta Directa con IA para cualquier municipio o trámite específico
+            // 🔍 CAJA DE CONSULTA Y BÚSQUEDA EN INTERNET EN TIEMPO REAL
             AnimatedVisibility(
                 visible = showAiQueryBox,
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFF1E1B4B).copy(alpha = 0.6f),
-                    border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF0F172A),
+                    border = BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.45f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
-                        Text(
-                            text = "💡 Consulta a Zack AI en tiempo real sobre ${selectedCountry.name}:",
-                            color = NeonPurple,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
+                    Column(modifier = Modifier.padding(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedTextField(
-                                value = aiQueryText,
-                                onValueChange = { aiQueryText = it },
-                                placeholder = {
-                                    Text(
-                                        text = "Ej. EBAIS de San Rafael, Municipalidad de Escazú, requisitos...",
-                                        fontSize = 11.sp,
-                                        color = TextSecondaryDark
-                                    )
-                                },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = ObsidianCard,
-                                    unfocusedContainerColor = ObsidianCard,
-                                    focusedBorderColor = NeonPurple,
-                                    unfocusedBorderColor = ObsidianCardBorder,
-                                    focusedTextColor = TextPrimaryDark,
-                                    unfocusedTextColor = TextPrimaryDark
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(44.dp)
-                            )
-                            Button(
-                                onClick = {
-                                    if (aiQueryText.isNotBlank()) {
-                                        isAiLoading = true
-                                        aiResponseText = null
-                                        coroutineScope.launch {
-                                            val resp = executeAiPublicServiceQuery(
-                                                context = context,
-                                                country = selectedCountry.name,
-                                                tzLabel = selectedCountry.timeZoneLabel,
-                                                query = aiQueryText
-                                            )
-                                            isAiLoading = false
-                                            aiResponseText = resp
-                                        }
-                                    }
-                                },
-                                enabled = !isAiLoading && aiQueryText.isNotBlank(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = NeonPurple,
-                                    contentColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(44.dp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🌐", fontSize = 15.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Búsqueda en Internet en Tiempo Real (${selectedCountry.name})",
+                                    color = ElectricCyan,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = ElectricCyan.copy(alpha = 0.15f)
                             ) {
-                                if (isAiLoading) {
+                                Text(
+                                    text = "SITIOS OFICIALES",
+                                    color = ElectricCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 📏 CAMPO DE TEXTO AMPLIO (Mínimo 3 líneas, letra legible, color claro sobre fondo oscuro)
+                        OutlinedTextField(
+                            value = aiQueryText,
+                            onValueChange = { aiQueryText = it },
+                            placeholder = {
+                                Text(
+                                    text = "Escribe la institución o sucursal que buscas (ej. EBAIS San Rafael de Heredia, BNCR San Pedro, Correos Escazú, dirección, teléfonos o requisitos)...",
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF94A3B8),
+                                    lineHeight = 18.sp
+                                )
+                            },
+                            minLines = 3,
+                            maxLines = 6,
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                fontSize = 14.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Normal,
+                                lineHeight = 20.sp
+                            ),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFF1E293B),
+                                unfocusedContainerColor = Color(0xFF1E293B),
+                                focusedBorderColor = ElectricCyan,
+                                unfocusedBorderColor = ObsidianCardBorder,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                cursorColor = ElectricCyan
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("public_services_ai_multiline_input")
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = {
+                                if (aiQueryText.isNotBlank()) {
+                                    isAiLoading = true
+                                    searchStatusMessage = "Buscando información actualizada..."
+                                    aiResponseText = null
+                                    coroutineScope.launch {
+                                        val resp = executeAiPublicServiceQuery(
+                                            context = context,
+                                            country = selectedCountry.name,
+                                            tzLabel = selectedCountry.timeZoneLabel,
+                                            query = aiQueryText,
+                                            onStatusUpdate = { searchStatusMessage = it }
+                                        )
+                                        isAiLoading = false
+                                        aiResponseText = resp
+                                    }
+                                }
+                            },
+                            enabled = !isAiLoading && aiQueryText.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ElectricCyan,
+                                contentColor = DarkBackground,
+                                disabledContainerColor = ObsidianCard,
+                                disabledContentColor = TextSecondaryDark
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("public_services_search_internet_btn")
+                        ) {
+                            if (isAiLoading) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     CircularProgressIndicator(
-                                        color = Color.White,
+                                        color = DarkBackground,
                                         modifier = Modifier.size(16.dp),
                                         strokeWidth = 2.dp
                                     )
-                                } else {
-                                    Text("Preguntar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = searchStatusMessage,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = DarkBackground
+                                    )
+                                }
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Buscar en internet en tiempo real",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
 
                         if (!aiResponseText.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = ObsidianBackground,
-                                border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(10.dp),
+                                color = ObsidianCard,
+                                border = BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.5f)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
+                                Column(modifier = Modifier.padding(12.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            text = "Respuesta en vivo:",
-                                            color = AmberGold,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        IconButton(
-                                            onClick = {
-                                                clipboardManager.setText(AnnotatedString(aiResponseText ?: ""))
-                                            },
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.ContentCopy,
-                                                contentDescription = "Copiar",
-                                                tint = TextSecondaryDark,
-                                                modifier = Modifier.size(14.dp)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text("📋", fontSize = 14.sp)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Datos concretos oficiales:",
+                                                color = ElectricCyan,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
+                                        Row {
+                                            IconButton(
+                                                onClick = {
+                                                    clipboardManager.setText(AnnotatedString(aiResponseText ?: ""))
+                                                },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ContentCopy,
+                                                    contentDescription = "Copiar",
+                                                    tint = TextSecondaryDark,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
                                     }
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
                                     Text(
                                         text = aiResponseText ?: "",
-                                        color = TextPrimaryDark,
-                                        fontSize = 12.sp,
-                                        lineHeight = 17.sp
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        lineHeight = 19.sp
                                     )
                                 }
                             }
@@ -923,35 +993,87 @@ fun ServiceItemCard(
 }
 
 /**
- * Consulta inteligente en tiempo real con Gemini sobre horarios o trámites específicos en cualquier país.
+ * Realiza búsqueda ligera en internet en tiempo real para obtener datos actualizados de instituciones o sucursales.
+ */
+private suspend fun fetchWebSearchSnippets(query: String, country: String): String = withContext(Dispatchers.IO) {
+    try {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(6, TimeUnit.SECONDS)
+            .build()
+        val searchKeywords = if (country.contains("Costa Rica", ignoreCase = true)) {
+            "$query Costa Rica horario direccion telefono"
+        } else {
+            "$query $country horario direccion telefono"
+        }
+        val encoded = URLEncoder.encode(searchKeywords, "UTF-8")
+        val request = Request.Builder()
+            .url("https://html.duckduckgo.com/html/?q=$encoded")
+            .header("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:109.0) Gecko/109.0 Firefox/110.0")
+            .build()
+        val response = client.newCall(request).execute()
+        if (response.isSuccessful) {
+            val html = response.body?.string() ?: ""
+            val regex = Regex("""class="result__snippet[^>]*>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
+            val matches = regex.findAll(html).take(4).map { match ->
+                android.text.Html.fromHtml(match.groupValues[1], android.text.Html.FROM_HTML_MODE_LEGACY).toString().trim()
+            }.filter { it.isNotBlank() }.toList()
+            if (matches.isNotEmpty()) {
+                return@withContext matches.joinToString("\n• ", prefix = "DATOS ACTUALIZADOS EXTRAÍDOS DE INTERNET EN TIEMPO REAL:\n• ")
+            }
+        }
+    } catch (_: Exception) {
+        // En caso de corte o bloqueo, el modelo usará su base de conocimiento oficial
+    }
+    return@withContext ""
+}
+
+/**
+ * Consulta inteligente en tiempo real sobre horarios, direcciones, teléfonos y servicios públicos.
  */
 suspend fun executeAiPublicServiceQuery(
     context: Context,
     country: String,
     tzLabel: String,
-    query: String
+    query: String,
+    onStatusUpdate: (String) -> Unit = {}
 ): String = withContext(Dispatchers.IO) {
     val apiKey = GeminiClient.getStoredApiKey(context)
     if (apiKey.isBlank()) {
         return@withContext "Por favor configura tu clave de API en Ajustes para consultar horarios en tiempo real."
     }
 
-    val prompt = """
-        Eres el asistente de información de Servicios Públicos y Trámites de ZACK AI.
-        PAÍS OBJETIVO: $country
-        ZONA HORARIA: $tzLabel
-        CONSULTA DEL USUARIO: $query
+    onStatusUpdate("Buscando información actualizada en sitios oficiales...")
+    val liveSearchSnippets = fetchWebSearchSnippets(query, country)
+    onStatusUpdate("Buscando información actualizada...")
 
-        INSTRUCCIONES ESTRICTAS:
-        1. Responde de forma muy clara, concisa y estructurada:
-           - 🏛️ Institución / Sede consultada:
-           - ⏰ Horario de hoy y de mañana (en la hora oficial de $country):
-           - 📍 Dirección o ubicación principal:
-           - 📞 Teléfono o contacto oficial:
-           - ⚠️ Días feriados / Cierres especiales:
-           - 📋 Requisitos clave para el trámite:
-        2. Si la sede tiene atención diferenciada (ej. cajas vs plataforma, o urgencias 24h), indícalo.
-        3. Responde siempre en español amable y directo.
+    val liveSearchPart = if (liveSearchSnippets.isNotBlank()) {
+        "\n$liveSearchSnippets\n"
+    } else {
+        ""
+    }
+
+    val prompt = """
+        Eres el informador de Horarios y Servicios Públicos en tiempo real para $country.
+        ZONA HORARIA OFICIAL: $tzLabel
+        CONSULTA DEL USUARIO: $query
+        $liveSearchPart
+        INSTRUCCIONES OBLIGATORIAS:
+        1. 🔍 BÚSQUEDA Y SITIOS OFICIALES:
+           - Si la consulta es sobre Costa Rica, prioriza fuentes oficiales: CCSS (ccss.sa.cr), bancos públicos y privados (BNCR, BCR, Banco Popular, BAC), Correos de Costa Rica, AyA, ICE/kölbi, TSE / Registro Civil, INCOFER, COSEVI o Municipalidades.
+           - Si no encuentras el dato exacto al instante, responde: 'Buscando información actualizada...' y entrega la información oficial confirmada de la institución, su red de sucursales o la central de atención. NUNCA digas que no puedes ni te quedes sin datos.
+           - NUNCA respondas solo con frases amables sin dar la información real.
+
+        2. 📋 RESPONDE SIEMPRE CON DATOS CONCRETOS (Estructura obligatoria):
+           Para la institución o sucursal consultada debes entregar:
+           ✅ Horario completo: Horario de apertura y cierre (lunes a viernes, jornada de cajas vs plataforma, y fines de semana si aplica).
+           ✅ Dirección exacta: Ubicación precisa, cantón, distrito o señas claras de referencia.
+           ✅ Teléfono: Teléfono directo de la sucursal, central telefónica o WhatsApp oficial si lo encuentras.
+           ✅ Horarios especiales o cambios recientes: Avisa si aplican feriados según ley (ej. Ley 9875), citas EDUS obligatorias o trámites en línea.
+
+        3. FORMATO:
+           - Sé claro y directo. No uses frases largas sin información ni rodeos.
+           - Estructura con viñetas limpias para que sea rápido de leer.
     """.trimIndent()
 
     try {
@@ -966,8 +1088,8 @@ suspend fun executeAiPublicServiceQuery(
                     )
                 ),
                 generationConfig = com.example.data.remote.GenerationConfigDto(
-                    temperature = 0.2f,
-                    maxOutputTokens = 500
+                    temperature = 0.1f,
+                    maxOutputTokens = 1000
                 )
             )
         )
@@ -978,7 +1100,7 @@ suspend fun executeAiPublicServiceQuery(
                 return@withContext text.trim()
             }
         }
-        return@withContext "No se pudo obtener información detallada en este momento. Intenta reformular tu consulta."
+        return@withContext "Buscando información actualizada... Por favor especifica la sucursal o cantón exacto para mayor precisión."
     } catch (e: Exception) {
         return@withContext "Error de conexión al consultar servicio: ${e.localizedMessage ?: "Revisa tu conexión a internet"}"
     }
