@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Search
@@ -91,6 +92,7 @@ fun ChatDrawerContent(
     shoppingItemsCount: Int = 0,
     onOpenDocTools: () -> Unit = {},
     onOpenRealtimeCamera: () -> Unit = {},
+    onOpenWebBrowser: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
@@ -460,7 +462,56 @@ fun ChatDrawerContent(
                         }
                     }
 
-                    // 2. 📷 Cámara en Tiempo Real (Lens)
+                    // 2. 🌐 Navegador Web
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onOpenWebBrowser() }
+                            .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
+                            .testTag("drawer_web_browser_button"),
+                        color = ObsidianCard,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Language,
+                                    contentDescription = "Navegador Web",
+                                    tint = ElectricCyan,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Navegador Web",
+                                    color = TextPrimaryDark,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(5.dp),
+                                color = ElectricCyan.copy(alpha = 0.12f),
+                                border = BorderStroke(0.5.dp, ElectricCyan.copy(alpha = 0.5f))
+                            ) {
+                                Text(
+                                    text = "WEB",
+                                    color = ElectricCyan,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // 3. 📷 Cámara en Tiempo Real (Lens)
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()

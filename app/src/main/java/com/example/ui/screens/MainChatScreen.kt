@@ -97,6 +97,7 @@ import com.example.ui.components.RealtimeCameraSheet
 import com.example.ui.components.SettingsSheet
 import com.example.ui.components.ShoppingListSheet
 import com.example.ui.components.TasksAndRemindersSheet
+import com.example.ui.components.WebBrowserSheet
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.ChatViewModel
 import com.example.util.AudioRecordManager
@@ -132,6 +133,7 @@ fun MainChatScreen(
     var showShoppingListSheet by remember { mutableStateOf(false) }
     var showDocToolsDialog by remember { mutableStateOf(false) }
     var showRealtimeCameraSheet by remember { mutableStateOf(false) }
+    var showWebBrowserSheet by remember { mutableStateOf(false) }
 
     // TTS Setup & Speaking State
     var speakingMessageId by remember { mutableStateOf<String?>(null) }
@@ -409,6 +411,10 @@ fun MainChatScreen(
                 onOpenRealtimeCamera = {
                     coroutineScope.launch { drawerState.close() }
                     showRealtimeCameraSheet = true
+                },
+                onOpenWebBrowser = {
+                    coroutineScope.launch { drawerState.close() }
+                    showWebBrowserSheet = true
                 }
             )
         }
@@ -771,6 +777,17 @@ fun MainChatScreen(
             onCreateReminder = { title ->
                 viewModel.addTask(title)
                 viewModel.clearSnackbar()
+            }
+        )
+    }
+
+    // 🌐 Navegador Web Integrado
+    if (showWebBrowserSheet) {
+        WebBrowserSheet(
+            onDismiss = { showWebBrowserSheet = false },
+            onSendToChat = { prompt ->
+                showWebBrowserSheet = false
+                viewModel.sendMessage(prompt)
             }
         )
     }
