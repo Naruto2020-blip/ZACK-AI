@@ -242,16 +242,20 @@ fun ImageGeneratorSheet(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
                             onClick = {
-                                customKeyInput = com.example.data.remote.GeminiClient.getStoredApiKey(context)
+                                customKeyInput = if (com.example.data.remote.GeminiClient.hasCustomImageApiKey(context)) {
+                                    com.example.data.remote.GeminiClient.getImageApiKey(context)
+                                } else ""
                                 showApiKeyDialog = true
                             },
                             modifier = Modifier.testTag("configure_api_key_image_button")
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.VpnKey,
-                                contentDescription = "Configurar clave de API",
-                                tint = NeonPurple
-                            )
+                            Box {
+                                Icon(
+                                    imageVector = Icons.Default.VpnKey,
+                                    contentDescription = "Clave exclusiva para imágenes",
+                                    tint = if (com.example.data.remote.GeminiClient.isUsingDedicatedImageKey(context)) EmeraldGreen else NeonPurple
+                                )
+                            }
                         }
                         IconButton(
                             onClick = onDismiss,
@@ -493,7 +497,9 @@ fun ImageGeneratorSheet(
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(
                                 onClick = {
-                                    customKeyInput = com.example.data.remote.GeminiClient.getStoredApiKey(context)
+                                    customKeyInput = if (com.example.data.remote.GeminiClient.hasCustomImageApiKey(context)) {
+                                        com.example.data.remote.GeminiClient.getImageApiKey(context)
+                                    } else ""
                                     showApiKeyDialog = true
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
@@ -869,9 +875,11 @@ fun ImageGeneratorSheet(
     }
 
     // =========================================================================
-    // DIÁLOGO PARA CONFIGURAR LA CLAVE DE API DE GEMINI
+    // DIÁLOGO PARA CONFIGURAR LA CLAVE EXCLUSIVA DE IMÁGENES
     // =========================================================================
     if (showApiKeyDialog) {
+        val hasDedicatedKey = com.example.data.remote.GeminiClient.hasCustomImageApiKey(context)
+
         AlertDialog(
             onDismissRequest = { showApiKeyDialog = false },
             containerColor = ObsidianCard,
@@ -885,26 +893,52 @@ fun ImageGeneratorSheet(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Clave de API de Gemini",
+                        text = "Clave Exclusiva para Imágenes",
                         color = TextPrimaryDark,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
+                        fontSize = 17.sp
                     )
                 }
             },
             text = {
                 Column {
-                    Text(
-                        text = "Para generar imágenes con IA, Google requiere tu clave de API personal (la clave predeterminada de prueba tiene cuota 0 de imágenes asignada por Google).\n\nPuedes obtenerla gratis en Google AI Studio (aistudio.google.com/apikey) y pegarla aquí:",
-                        color = TextSecondaryDark,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    )
+                    Surface(
+                        color = NeonPurple.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.35f)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🔒 Totalmente aislada: Esta clave se usará ÚNICAMENTE para crear imágenes. Tu clave general del chat, audios, documentos y cámara permanecerá intacta y funcionando como siempre.",
+                                color = TextPrimaryDark,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = if (hasDedicatedKey) {
+                            "Actualmente tienes una clave exclusiva configurada solo para imágenes:"
+                        } else {
+                            "Pega aquí tu clave de API dedicada a imágenes (obtenida gratis en aistudio.google.com/apikey):"
+                        },
+                        color = TextSecondaryDark,
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     OutlinedTextField(
                         value = customKeyInput,
                         onValueChange = { customKeyInput = it },
-                        placeholder = { Text("Pega tu clave (AIzaSy...)", color = TextSecondaryDark.copy(alpha = 0.6f)) },
+                        placeholder = { Text("Pega tu clave para imágenes...", color = TextSecondaryDark.copy(alpha = 0.5f)) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = NeonPurple,
                             unfocusedBorderColor = ObsidianCardBorder,
@@ -918,15 +952,16 @@ fun ImageGeneratorSheet(
                             .testTag("custom_api_key_input_field"),
                         singleLine = true
                     )
-                    if (com.example.data.remote.GeminiClient.hasCustomApiKey(context)) {
+
+                    if (hasDedicatedKey) {
                         Spacer(modifier = Modifier.height(10.dp))
                         TextButton(
                             onClick = {
-                                com.example.data.remote.GeminiClient.resetToDefaultApiKey(context)
+                                com.example.data.remote.GeminiClient.resetImageApiKey(context)
                                 customKeyInput = ""
                                 showApiKeyDialog = false
                                 errorMessage = null
-                                Toast.makeText(context, "Se restableció la clave predeterminada de la app", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Se eliminó la clave exclusiva. Se usará la clave del chat como respaldo.", Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.align(Alignment.Start)
                         ) {
@@ -938,7 +973,7 @@ fun ImageGeneratorSheet(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Restaurar clave original de la app",
+                                text = "Quitar clave exclusiva (usar clave del chat)",
                                 color = ElectricCyan,
                                 fontSize = 12.sp
                             )
@@ -951,10 +986,10 @@ fun ImageGeneratorSheet(
                     onClick = {
                         val trimmed = customKeyInput.trim()
                         if (trimmed.isNotBlank()) {
-                            com.example.data.remote.GeminiClient.saveCustomApiKey(context, trimmed)
+                            com.example.data.remote.GeminiClient.saveImageApiKey(context, trimmed)
                             showApiKeyDialog = false
                             errorMessage = null
-                            Toast.makeText(context, "Clave guardada exitosamente", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "✅ Clave exclusiva de imágenes guardada (Chat no afectado)", Toast.LENGTH_LONG).show()
                             if (promptText.isNotBlank()) {
                                 triggerGeneration()
                             }
@@ -966,7 +1001,7 @@ fun ImageGeneratorSheet(
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.testTag("save_custom_api_key_button")
                 ) {
-                    Text("Guardar y Probar", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Guardar Solo para Imágenes", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {

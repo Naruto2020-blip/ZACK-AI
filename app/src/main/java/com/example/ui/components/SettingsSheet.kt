@@ -76,11 +76,20 @@ fun SettingsSheet(
     onSetVoiceGender: (String) -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = androidx.compose.ui.platform.LocalContext.current
     var apiKeyInput by androidx.compose.runtime.remember(uiState.currentApiKey) {
         androidx.compose.runtime.mutableStateOf(uiState.currentApiKey)
     }
     var showApiKeyInput by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var showModelsDialog by remember { mutableStateOf(false) }
+
+    var hasDedicatedImageKey by remember {
+        mutableStateOf(com.example.data.remote.GeminiClient.hasCustomImageApiKey(context))
+    }
+    var imageKeyInput by remember {
+        mutableStateOf(if (com.example.data.remote.GeminiClient.hasCustomImageApiKey(context)) com.example.data.remote.GeminiClient.getImageApiKey(context) else "")
+    }
+    var showImageKeyInput by remember { mutableStateOf(false) }
 
     val personas = listOf(
         PersonaOption(
@@ -573,6 +582,127 @@ fun SettingsSheet(
                                 )
                             ) {
                                 Text("Guardar Clave", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Clave Exclusiva para Imágenes (Dedicada)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = if (isAppDark()) Color(0xFF131522) else ObsidianCard,
+                border = androidx.compose.foundation.BorderStroke(1.dp, NeonPurple.copy(alpha = 0.4f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(NeonPurple.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Create,
+                                    contentDescription = null,
+                                    tint = NeonPurple,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Clave Exclusiva para Imágenes",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimaryDark
+                                )
+                                Text(
+                                    text = if (hasDedicatedImageKey) "● Clave propia activa (Chat protegido)" else "○ Usando clave del chat como respaldo",
+                                    color = if (hasDedicatedImageKey) EmeraldGreen else TextSecondaryDark,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        androidx.compose.material3.TextButton(
+                            onClick = { showImageKeyInput = !showImageKeyInput }
+                        ) {
+                            Text(
+                                text = if (showImageKeyInput) "Ocultar" else "Configurar",
+                                color = NeonPurple,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    if (showImageKeyInput) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Esta clave se usará ÚNICAMENTE para generar imágenes con IA. Tu clave general del chat no se tocará jamás.",
+                            color = TextSecondaryDark,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.OutlinedTextField(
+                            value = imageKeyInput,
+                            onValueChange = { imageKeyInput = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Pega tu clave solo para imágenes...", color = TextSecondaryDark, fontSize = 13.sp) },
+                            singleLine = true,
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonPurple,
+                                unfocusedBorderColor = ObsidianCardBorder,
+                                focusedTextColor = TextPrimaryDark,
+                                unfocusedTextColor = TextPrimaryDark
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (hasDedicatedImageKey) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        com.example.data.remote.GeminiClient.resetImageApiKey(context)
+                                        hasDedicatedImageKey = false
+                                        imageKeyInput = ""
+                                        showImageKeyInput = false
+                                    }
+                                ) {
+                                    Text("Quitar", color = Color(0xFFEF4444), fontSize = 12.sp)
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.width(1.dp))
+                            }
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    val trimmed = imageKeyInput.trim()
+                                    if (trimmed.isNotBlank()) {
+                                        com.example.data.remote.GeminiClient.saveImageApiKey(context, trimmed)
+                                        hasDedicatedImageKey = true
+                                        showImageKeyInput = false
+                                    }
+                                },
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = NeonPurple,
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("Guardar para Imágenes", fontWeight = FontWeight.Bold)
                             }
                         }
                     }

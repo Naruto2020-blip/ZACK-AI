@@ -58,8 +58,7 @@ object ImageGenerationManager {
     ): Result<GeneratedAiImage> = withContext(Dispatchers.IO) {
         val apiKey = when {
             !customApiKey.isNullOrBlank() -> customApiKey.trim()
-            context != null -> GeminiClient.getStoredApiKey(context)
-            else -> GeminiClient.getApiKey()
+            else -> GeminiClient.getImageApiKey(context)
         }
 
         if (apiKey.isBlank()) {
