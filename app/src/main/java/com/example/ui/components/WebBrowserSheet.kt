@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -24,10 +26,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,29 +35,31 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -79,7 +81,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -91,12 +92,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.example.ui.theme.DarkCardBorder
 import com.example.ui.theme.DarkTextPrimary
 import com.example.ui.theme.DarkTextSecondary
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.NeonPurple
 import com.example.ui.theme.ObsidianBackground
 import com.example.ui.theme.ObsidianCard
 import com.example.ui.theme.ObsidianCardBorder
@@ -130,6 +129,7 @@ fun WebBrowserSheet(
     var canGoForward by remember { mutableStateOf(false) }
     var isHomeView by remember { mutableStateOf(initialUrl.isBlank()) }
     var loadError by remember { mutableStateOf<String?>(null) }
+    var showMenu by remember { mutableStateOf(false) }
 
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
 
@@ -185,7 +185,7 @@ fun WebBrowserSheet(
         dragHandle = {
             Box(
                 modifier = Modifier
-                    .padding(vertical = 8.dp)
+                    .padding(vertical = 6.dp)
                     .size(width = 36.dp, height = 4.dp)
                     .clip(CircleShape)
                     .background(if (isAppDark()) Color(0xFF475569) else Color(0xFFCBD5E1))
@@ -193,7 +193,7 @@ fun WebBrowserSheet(
         },
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         modifier = Modifier
-            .fillMaxHeight(0.96f)
+            .fillMaxSize()
             .imePadding()
             .testTag("web_browser_bottom_sheet")
     ) {
@@ -203,280 +203,274 @@ fun WebBrowserSheet(
                 .background(ObsidianBackground)
         ) {
             // ==========================================
-            // BARRA SUPERIOR: URL + NAVEGACIÓN + ACCIONES
+            // BARRA SUPERIOR — ORDEN EXACTO SOLICITADO:
+            // 1. 🏠 Casita de Inicio
+            // 2. [1] Indicador de pestaña
+            // 3. Barra de dirección (mediana, ancha y alta)
+            // 4. ⋮ Menú de tres puntos verticales
             // ==========================================
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = ObsidianCard,
                 border = BorderStroke(1.dp, ObsidianCardBorder)
             ) {
-                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                    // Fila 1: Flechas navegación + Omnibar + Botón IA + Cerrar
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // 1️⃣ 🏠 Casita de Inicio
+                    IconButton(
+                        onClick = {
+                            isHomeView = true
+                            urlInput = ""
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .testTag("browser_home_button")
                     ) {
-                        // Atrás
-                        IconButton(
-                            onClick = {
-                                if (webViewInstance?.canGoBack() == true) {
-                                    webViewInstance?.goBack()
-                                } else {
-                                    isHomeView = true
-                                }
-                            },
-                            enabled = canGoBack || !isHomeView,
-                            modifier = Modifier.size(36.dp).testTag("browser_back_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Página anterior",
-                                tint = if (canGoBack || !isHomeView) DarkTextPrimary else DarkTextSecondary.copy(alpha = 0.4f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        // Adelante
-                        IconButton(
-                            onClick = { webViewInstance?.goForward() },
-                            enabled = canGoForward,
-                            modifier = Modifier.size(36.dp).testTag("browser_forward_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "Página siguiente",
-                                tint = if (canGoForward) DarkTextPrimary else DarkTextSecondary.copy(alpha = 0.4f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        // Inicio (Home)
-                        IconButton(
-                            onClick = {
-                                isHomeView = true
-                                urlInput = ""
-                            },
-                            modifier = Modifier.size(36.dp).testTag("browser_home_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Home,
-                                contentDescription = "Inicio del navegador",
-                                tint = if (isHomeView) ElectricCyan else DarkTextPrimary,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-
-                        // Barra de Dirección / Búsqueda
-                        OutlinedTextField(
-                            value = urlInput,
-                            onValueChange = { urlInput = it },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp)
-                                .testTag("browser_url_input"),
-                            placeholder = {
-                                Text(
-                                    text = "Buscar o escribir URL...",
-                                    fontSize = 12.sp,
-                                    color = DarkTextSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp,
-                                color = DarkTextPrimary
-                            ),
-                            leadingIcon = {
-                                if (currentUrl.startsWith("https://")) {
-                                    Icon(
-                                        imageVector = Icons.Default.Lock,
-                                        contentDescription = "Conexión segura",
-                                        tint = EmeraldGreen,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = "Buscar",
-                                        tint = DarkTextSecondary,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            },
-                            trailingIcon = {
-                                if (urlInput.isNotBlank()) {
-                                    IconButton(
-                                        onClick = { urlInput = "" },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Borrar",
-                                            tint = DarkTextSecondary,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Uri,
-                                imeAction = ImeAction.Go
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onGo = { sanitizeAndLoadUrl(urlInput) },
-                                onDone = { sanitizeAndLoadUrl(urlInput) }
-                            ),
-                            shape = RoundedCornerShape(22.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = ObsidianBackground,
-                                unfocusedContainerColor = ObsidianBackground,
-                                focusedBorderColor = ElectricCyan,
-                                unfocusedBorderColor = ObsidianCardBorder,
-                                cursorColor = ElectricCyan
-                            )
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "Inicio del navegador",
+                            tint = if (isHomeView) ElectricCyan else DarkTextPrimary,
+                            modifier = Modifier.size(24.dp)
                         )
-
-                        // Recargar / Ir
-                        IconButton(
-                            onClick = {
-                                if (urlInput != currentUrl && urlInput.isNotBlank()) {
-                                    sanitizeAndLoadUrl(urlInput)
-                                } else {
-                                    webViewInstance?.reload()
-                                }
-                            },
-                            modifier = Modifier.size(36.dp).testTag("browser_reload_button")
-                        ) {
-                            Icon(
-                                imageVector = if (urlInput != currentUrl && urlInput.isNotBlank()) Icons.Default.Search else Icons.Default.Refresh,
-                                contentDescription = "Recargar o buscar",
-                                tint = DarkTextPrimary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        // Cerrar
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(36.dp).testTag("browser_close_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Cerrar navegador",
-                                tint = DarkTextSecondary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
                     }
 
-                    // Fila 2: Título de página actual + Acciones rápidas con Zack AI
-                    if (!isHomeView && currentUrl.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f).padding(end = 8.dp)
-                            ) {
+                    // 2️⃣ Indicador de pestaña (cuadro estilo navegador móvil)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .border(
+                                1.5.dp,
+                                if (!isHomeView) ElectricCyan else DarkTextPrimary.copy(alpha = 0.8f),
+                                RoundedCornerShape(6.dp)
+                            )
+                            .clickable {
+                                isHomeView = !isHomeView
+                            }
+                            .testTag("browser_tab_indicator"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "1",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (!isHomeView) ElectricCyan else DarkTextPrimary
+                        )
+                    }
+
+                    // 3️⃣ Barra de dirección — más ancha y con mayor altura para escribir bien
+                    OutlinedTextField(
+                        value = urlInput,
+                        onValueChange = { urlInput = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                            .testTag("browser_url_input"),
+                        placeholder = {
+                            Text(
+                                text = "Buscar o escribir URL...",
+                                fontSize = 13.sp,
+                                color = DarkTextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            color = DarkTextPrimary
+                        ),
+                        leadingIcon = {
+                            if (currentUrl.startsWith("https://")) {
                                 Icon(
-                                    imageVector = Icons.Default.Language,
-                                    contentDescription = null,
-                                    tint = ElectricCyan,
-                                    modifier = Modifier.size(14.dp)
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Conexión segura",
+                                    tint = EmeraldGreen,
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (pageTitle.isNotBlank()) pageTitle else currentUrl,
-                                    color = DarkTextPrimary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "Buscar",
+                                    tint = DarkTextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        },
+                        trailingIcon = {
+                            if (urlInput.isNotBlank()) {
+                                IconButton(
+                                    onClick = { urlInput = "" },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Borrar",
+                                        tint = DarkTextSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Go
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onGo = { sanitizeAndLoadUrl(urlInput) },
+                            onDone = { sanitizeAndLoadUrl(urlInput) }
+                        ),
+                        shape = RoundedCornerShape(25.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = ObsidianBackground,
+                            unfocusedContainerColor = ObsidianBackground,
+                            focusedBorderColor = ElectricCyan,
+                            unfocusedBorderColor = ObsidianCardBorder,
+                            cursorColor = ElectricCyan
+                        )
+                    )
+
+                    // 4️⃣ ⋮ Tres puntos verticales (Menú desplegable donde antes estaba la X)
+                    Box {
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .testTag("browser_menu_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Menú de opciones",
+                                tint = DarkTextPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier
+                                .background(ObsidianCard)
+                                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(10.dp))
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Recargar página", color = DarkTextPrimary, fontSize = 13.sp) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Refresh,
+                                        contentDescription = null,
+                                        tint = ElectricCyan,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    webViewInstance?.reload()
+                                }
+                            )
+
+                            if (canGoBack) {
+                                DropdownMenuItem(
+                                    text = { Text("Página anterior", color = DarkTextPrimary, fontSize = 13.sp) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = null,
+                                            tint = DarkTextSecondary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        webViewInstance?.goBack()
+                                    }
                                 )
                             }
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                // Enviar a Zack AI para resumir o analizar
-                                Surface(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable {
-                                            val prompt = "Por favor analiza y resume esta página web:\n${pageTitle.ifBlank { "Página" }}\nURL: $currentUrl"
-                                            onSendToChat(prompt)
-                                            onDismiss()
-                                        }
-                                        .testTag("browser_send_to_ai_button"),
-                                    color = NeonPurple.copy(alpha = 0.15f),
-                                    border = BorderStroke(0.5.dp, NeonPurple.copy(alpha = 0.5f)),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
+                            if (canGoForward) {
+                                DropdownMenuItem(
+                                    text = { Text("Página siguiente", color = DarkTextPrimary, fontSize = 13.sp) },
+                                    leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.Default.AutoAwesome,
-                                            contentDescription = "Analizar con IA",
-                                            tint = NeonPurple,
-                                            modifier = Modifier.size(13.dp)
+                                            Icons.AutoMirrored.Filled.ArrowForward,
+                                            contentDescription = null,
+                                            tint = DarkTextSecondary,
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "Consultar con Zack AI",
-                                            color = NeonPurple,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        webViewInstance?.goForward()
+                                    }
+                                )
+                            }
+
+                            DropdownMenuItem(
+                                text = { Text("Compartir enlace", color = DarkTextPrimary, fontSize = 13.sp) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Share,
+                                        contentDescription = null,
+                                        tint = DarkTextSecondary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    val target = if (currentUrl.isNotBlank()) currentUrl else "https://www.google.com"
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, target)
+                                        putExtra(Intent.EXTRA_SUBJECT, pageTitle)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Compartir enlace"))
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Abrir en navegador externo", color = DarkTextPrimary, fontSize = 13.sp) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.OpenInNew,
+                                        contentDescription = null,
+                                        tint = DarkTextSecondary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    try {
+                                        val target = if (currentUrl.isNotBlank()) currentUrl else "https://www.google.com"
+                                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(target))
+                                        context.startActivity(browserIntent)
+                                    } catch (_: Exception) {
+                                        Toast.makeText(context, "No se pudo abrir navegador externo", Toast.LENGTH_SHORT).show()
                                     }
                                 }
+                            )
 
-                                Spacer(modifier = Modifier.width(6.dp))
+                            HorizontalDivider(color = ObsidianCardBorder, thickness = 0.5.dp)
 
-                                // Compartir URL
-                                IconButton(
-                                    onClick = {
-                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(Intent.EXTRA_TEXT, currentUrl)
-                                            putExtra(Intent.EXTRA_SUBJECT, pageTitle)
-                                        }
-                                        context.startActivity(Intent.createChooser(shareIntent, "Compartir enlace"))
-                                    },
-                                    modifier = Modifier.size(28.dp).testTag("browser_share_button")
-                                ) {
+                            DropdownMenuItem(
+                                text = { Text("Cerrar navegador", color = Color(0xFFEF4444), fontSize = 13.sp, fontWeight = FontWeight.Bold) },
+                                leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Default.Share,
-                                        contentDescription = "Compartir enlace",
-                                        tint = DarkTextSecondary,
-                                        modifier = Modifier.size(15.dp)
+                                        Icons.Default.Close,
+                                        contentDescription = null,
+                                        tint = Color(0xFFEF4444),
+                                        modifier = Modifier.size(18.dp)
                                     )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onDismiss()
                                 }
-
-                                // Abrir en navegador externo
-                                IconButton(
-                                    onClick = {
-                                        try {
-                                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(currentUrl))
-                                            context.startActivity(browserIntent)
-                                        } catch (e: Exception) {
-                                            Toast.makeText(context, "No se pudo abrir navegador externo", Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    modifier = Modifier.size(28.dp).testTag("browser_open_external_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                                        contentDescription = "Abrir externamente",
-                                        tint = DarkTextSecondary,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                }
-                            }
+                            )
                         }
                     }
                 }
@@ -490,7 +484,9 @@ fun WebBrowserSheet(
             ) {
                 LinearProgressIndicator(
                     progress = { progress },
-                    modifier = Modifier.fillMaxWidth().height(2.5.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.5.dp),
                     color = ElectricCyan,
                     trackColor = ObsidianBackground
                 )
@@ -507,14 +503,16 @@ fun WebBrowserSheet(
                 if (isHomeView) {
                     // ----------------------------------------
                     // PANTALLA DE INICIO: MARCADORES Y ACCESOS
+                    // Con scroll vertical libre sin cortes
                     // ----------------------------------------
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(20.dp),
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         Box(
                             modifier = Modifier
@@ -543,7 +541,7 @@ fun WebBrowserSheet(
                         )
 
                         Text(
-                            text = "Navega por internet, busca información o consulta cualquier página directamente con Zack AI.",
+                            text = "Navega y busca libremente por internet con desplazamiento fluido.",
                             style = MaterialTheme.typography.bodySmall,
                             color = DarkTextSecondary,
                             textAlign = TextAlign.Center,
@@ -552,7 +550,7 @@ fun WebBrowserSheet(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Título de sección
+                        // Título de sección de marcadores
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -566,105 +564,67 @@ fun WebBrowserSheet(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        // Cuadrícula de accesos rápidos
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(4),
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(quickBookmarks) { bookmark ->
-                                Surface(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable { sanitizeAndLoadUrl(bookmark.url) }
-                                        .border(1.dp, ObsidianCardBorder, RoundedCornerShape(12.dp)),
-                                    color = ObsidianCard,
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
+                        // Cuadrícula de marcadores (2 filas de 4 elementos, scrolleable junto con toda la vista)
+                        val bookmarkRows = remember(quickBookmarks) { quickBookmarks.chunked(4) }
+                        bookmarkRows.forEach { rowList ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                rowList.forEach { bookmark ->
+                                    Surface(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable { sanitizeAndLoadUrl(bookmark.url) }
+                                            .border(1.dp, ObsidianCardBorder, RoundedCornerShape(12.dp)),
+                                        color = ObsidianCard,
+                                        shape = RoundedCornerShape(12.dp)
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(38.dp)
-                                                .clip(CircleShape)
-                                                .background(bookmark.color.copy(alpha = 0.16f))
-                                                .border(1.dp, bookmark.color.copy(alpha = 0.4f), CircleShape),
-                                            contentAlignment = Alignment.Center
+                                        Column(
+                                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(CircleShape)
+                                                    .background(bookmark.color.copy(alpha = 0.16f))
+                                                    .border(1.dp, bookmark.color.copy(alpha = 0.4f), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = bookmark.iconName,
+                                                    color = bookmark.color,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(6.dp))
                                             Text(
-                                                text = bookmark.iconName,
-                                                color = bookmark.color,
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.ExtraBold
+                                                text = bookmark.title,
+                                                fontSize = 11.sp,
+                                                color = DarkTextPrimary,
+                                                fontWeight = FontWeight.Medium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Text(
-                                            text = bookmark.title,
-                                            fontSize = 11.sp,
-                                            color = DarkTextPrimary,
-                                            fontWeight = FontWeight.Medium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
                                     }
                                 }
                             }
+                            Spacer(modifier = Modifier.height(10.dp))
                         }
 
-                        Spacer(modifier = Modifier.height(28.dp))
-
-                        // Tarjeta de sugerencia con Zack AI
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            color = ObsidianCard,
-                            border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.35f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(NeonPurple.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = NeonPurple,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Integrado con tu Asistente",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = DarkTextPrimary
-                                    )
-                                    Text(
-                                        text = "Cuando visites cualquier artículo o noticia, toca 'Consultar con Zack AI' para que te explique o resuma el contenido.",
-                                        fontSize = 11.sp,
-                                        color = DarkTextSecondary,
-                                        lineHeight = 15.sp
-                                    )
-                                }
-                            }
-                        }
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 } else {
                     // ----------------------------------------
                     // VISTA WEB (ANDROID WEBVIEW)
+                    // Configurado para permitir desplazamiento
+                    // fluido y libre de todos los resultados
                     // ----------------------------------------
                     Box(modifier = Modifier.fillMaxSize()) {
                         AndroidView(
@@ -674,6 +634,24 @@ fun WebBrowserSheet(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         ViewGroup.LayoutParams.MATCH_PARENT
                                     )
+                                    isNestedScrollingEnabled = true
+                                    overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                                    isVerticalScrollBarEnabled = true
+
+                                    // CRÍTICO: Evita que el contenedor BottomSheet intercepte los toques
+                                    // permitiendo que el usuario se desplace libremente hacia abajo por TODOS los resultados
+                                    setOnTouchListener { v, event ->
+                                        when (event.action) {
+                                            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                                                v.parent?.requestDisallowInterceptTouchEvent(true)
+                                            }
+                                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                                v.parent?.requestDisallowInterceptTouchEvent(false)
+                                            }
+                                        }
+                                        false
+                                    }
+
                                     setupWebViewSettings(this)
 
                                     webViewClient = object : WebViewClient() {
@@ -714,7 +692,7 @@ fun WebBrowserSheet(
                                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(nextUrl))
                                                 ctx.startActivity(intent)
                                                 true
-                                            } catch (e: Exception) {
+                                            } catch (_: Exception) {
                                                 true
                                             }
                                         }
@@ -799,13 +777,19 @@ fun WebBrowserSheet(
                                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                         Button(
                                             onClick = { webViewInstance?.reload() },
-                                            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color.Black)
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = ElectricCyan,
+                                                contentColor = Color.Black
+                                            )
                                         ) {
                                             Text("Reintentar", fontWeight = FontWeight.Bold)
                                         }
                                         Button(
                                             onClick = { isHomeView = true },
-                                            colors = ButtonDefaults.buttonColors(containerColor = ObsidianCard, contentColor = DarkTextPrimary)
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = ObsidianCard,
+                                                contentColor = DarkTextPrimary
+                                            )
                                         ) {
                                             Text("Ir al Inicio")
                                         }
@@ -840,6 +824,7 @@ private fun setupWebViewSettings(webView: WebView) {
         builtInZoomControls = true
         displayZoomControls = false
         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        cacheMode = WebSettings.LOAD_DEFAULT
         userAgentString = userAgentString.replace("; wv", "") // Mejor compatibilidad con sitios móviles
     }
 }
