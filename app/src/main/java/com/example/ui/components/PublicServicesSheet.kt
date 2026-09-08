@@ -47,14 +47,17 @@ import androidx.compose.material.icons.filled.WaterDamage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -64,6 +67,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +76,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -148,7 +154,20 @@ fun PublicServicesSheet(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { sheetValue -> sheetValue != SheetValue.Hidden }
+    )
+
+    // Interceptar el botón Atrás / flecha abajo del teclado del teléfono:
+    // Solo oculta el teclado y limpia el foco sin cerrar la pantalla de Servicios Públicos.
+    BackHandler(enabled = true) {
+        keyboardController?.hide()
+        focusManager.clearFocus()
+    }
 
     val countries = remember {
         listOf(
@@ -179,12 +198,12 @@ fun PublicServicesSheet(
     var selectedCategory by remember { mutableStateOf(ServiceCategory.TODOS) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Consulta con IA en tiempo real para cualquier trámite o sede
-    var aiQueryText by remember { mutableStateOf("") }
+    // Consulta con IA en tiempo real guardada de forma persistente
+    var aiQueryText by rememberSaveable { mutableStateOf("") }
     var isAiLoading by remember { mutableStateOf(false) }
     var searchStatusMessage by remember { mutableStateOf("Buscando información actualizada...") }
-    var aiResponseText by remember { mutableStateOf<String?>(null) }
-    var showAiQueryBox by remember { mutableStateOf(true) }
+    var aiResponseText by rememberSaveable { mutableStateOf<String?>(null) }
+    var showAiQueryBox by rememberSaveable { mutableStateOf(true) }
 
     // Reloj dinámico en tiempo real para el país seleccionado
     var currentCountryTimeText by remember { mutableStateOf("") }
@@ -224,6 +243,9 @@ fun PublicServicesSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        properties = ModalBottomSheetDefaults.properties(
+            shouldDismissOnBackPress = false
+        ),
         containerColor = ObsidianBackground,
         contentColor = TextPrimaryDark,
         dragHandle = {
@@ -284,425 +306,430 @@ fun PublicServicesSheet(
                 }
             }
 
-            // 🔎 Barra de búsqueda superior
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Contenido completo en LazyColumn para scroll unificado y lectura cómoda sin cortes
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = {
-                        Text(
-                            text = "Buscar CCSS, bancos, AyA, correos...",
-                            fontSize = 12.sp,
-                            color = TextSecondaryDark
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Buscar",
-                            tint = ElectricCyan,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = ObsidianCard,
-                        unfocusedContainerColor = ObsidianCard,
-                        focusedBorderColor = ElectricCyan,
-                        unfocusedBorderColor = ObsidianCardBorder,
-                        focusedTextColor = TextPrimaryDark,
-                        unfocusedTextColor = TextPrimaryDark
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("public_services_search_field")
-                )
-
-                if (!showAiQueryBox) {
-                    Button(
-                        onClick = { showAiQueryBox = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NeonPurple,
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        modifier = Modifier
-                            .height(48.dp)
-                            .testTag("open_ai_btn")
+                // 🔎 Barra de búsqueda superior
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "🤖 Preguntar a IA",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 🤖 "Consulta a AI en tiempo real sobre Costa Rica" → CAJA DE TEXTO GRANDE + BOTÓN MORADO "Preguntar"
-            AnimatedVisibility(
-                visible = showAiQueryBox,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF0F172A),
-                    border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.5f)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🤖", fontSize = 16.sp)
-                                Spacer(modifier = Modifier.width(6.dp))
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = {
                                 Text(
-                                    text = "Consulta a AI en tiempo real sobre ${selectedCountry.name}",
-                                    color = NeonPurple,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Bold
+                                    text = "Buscar CCSS, bancos, AyA, correos...",
+                                    fontSize = 12.sp,
+                                    color = TextSecondaryDark
                                 )
-                            }
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "Buscar",
+                                    tint = ElectricCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = ObsidianCard,
+                                unfocusedContainerColor = ObsidianCard,
+                                focusedBorderColor = ElectricCyan,
+                                unfocusedBorderColor = ObsidianCardBorder,
+                                focusedTextColor = TextPrimaryDark,
+                                unfocusedTextColor = TextPrimaryDark
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("public_services_search_field")
+                        )
+
+                        if (!showAiQueryBox) {
                             Button(
-                                onClick = { showAiQueryBox = false },
+                                onClick = { showAiQueryBox = true },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = NeonPurple,
                                     contentColor = Color.White
                                 ),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp),
                                 modifier = Modifier
-                                    .height(30.dp)
-                                    .testTag("close_ai_btn")
+                                    .height(48.dp)
+                                    .testTag("open_ai_btn")
                             ) {
                                 Text(
-                                    text = "Cerrar IA",
-                                    fontSize = 11.sp,
+                                    text = "🤖 Preguntar a IA",
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // CAJA DE TEXTO GRANDE (Mínimo 3 líneas de alto, letra legible, color claro sobre fondo oscuro)
-                        OutlinedTextField(
-                            value = aiQueryText,
-                            onValueChange = { aiQueryText = it },
-                            placeholder = {
-                                Text(
-                                    text = "Escribe aquí tu consulta (ej. horario sucursal CCSS Tres Ríos, EBAIS Cartago, sucursales Banco Nacional, AyA, Correos)...",
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF94A3B8),
-                                    lineHeight = 18.sp
-                                )
-                            },
-                            minLines = 3,
-                            maxLines = 5,
-                            textStyle = androidx.compose.ui.text.TextStyle(
-                                fontSize = 14.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Normal,
-                                lineHeight = 20.sp
-                            ),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF1E293B),
-                                unfocusedContainerColor = Color(0xFF1E293B),
-                                focusedBorderColor = NeonPurple,
-                                unfocusedBorderColor = ObsidianCardBorder,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = NeonPurple
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("public_services_ai_multiline_input")
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // BOTÓN MORADO "Preguntar"
-                        Button(
-                            onClick = {
-                                val trimmed = aiQueryText.trim()
-                                if (trimmed.isNotBlank()) {
-                                    isAiLoading = true
-                                    aiResponseText = null
-                                    coroutineScope.launch {
-                                        val resp = executeAiPublicServiceQuery(
-                                            context = context,
-                                            country = selectedCountry.name,
-                                            tzLabel = selectedCountry.timeZoneLabel,
-                                            query = trimmed,
-                                            onStatusUpdate = { searchStatusMessage = it }
-                                        )
-                                        isAiLoading = false
-                                        aiResponseText = resp
-                                    }
-                                }
-                            },
-                            enabled = !isAiLoading && aiQueryText.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = NeonPurple,
-                                contentColor = Color.White,
-                                disabledContainerColor = ObsidianCard,
-                                disabledContentColor = TextSecondaryDark
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp)
-                                .testTag("public_services_ai_ask_btn")
-                        ) {
-                            if (isAiLoading) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Consultando...",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    text = "Preguntar",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-
-                        // 📋 Área de respuesta en vivo donde se muestra la información
-                        if (!aiResponseText.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = ObsidianCard,
-                                border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.6f)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("📋", fontSize = 15.sp)
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "Respuesta en vivo:",
-                                                color = NeonPurple,
-                                                fontSize = 12.5.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                        IconButton(
-                                            onClick = {
-                                                clipboardManager.setText(AnnotatedString(aiResponseText ?: ""))
-                                            },
-                                            modifier = Modifier.size(28.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.ContentCopy,
-                                                contentDescription = "Copiar",
-                                                tint = TextSecondaryDark,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = aiResponseText ?: "",
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        lineHeight = 19.sp
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
-            }
 
-            // Selección de países
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                countries.forEach { c ->
-                    val isSel = c.code == selectedCountry.code
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isSel) ElectricCyan else ObsidianCard,
-                        border = BorderStroke(1.dp, if (isSel) ElectricCyan else ObsidianCardBorder),
-                        modifier = Modifier.clickable {
-                            selectedCountry = c
-                            aiResponseText = null
-                        }
+                // 🤖 "Consulta a AI en tiempo real sobre Costa Rica" → CAJA DE TEXTO GRANDE + BOTÓN MORADO "Preguntar"
+                item {
+                    AnimatedVisibility(
+                        visible = showAiQueryBox,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(c.flag, fontSize = 13.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = c.name,
-                                color = if (isSel) DarkBackground else TextPrimaryDark,
-                                fontSize = 11.5.sp,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Barra de Zona Horaria y País Automático (Hora)
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = ObsidianCard,
-                border = BorderStroke(1.dp, ObsidianCardBorder),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(selectedCountry.flag, fontSize = 18.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = selectedCountry.name.uppercase(),
-                                color = ElectricCyan,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = ElectricCyan.copy(alpha = 0.15f)
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF0F172A),
+                            border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = selectedCountry.timeZoneLabel,
-                                color = ElectricCyan,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("🤖", fontSize = 16.sp)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Consulta a AI en tiempo real sobre ${selectedCountry.name}",
+                                            color = NeonPurple,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Button(
+                                        onClick = { showAiQueryBox = false },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = NeonPurple,
+                                            contentColor = Color.White
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                        modifier = Modifier
+                                            .height(30.dp)
+                                            .testTag("close_ai_btn")
+                                    ) {
+                                        Text(
+                                            text = "Cerrar IA",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // CAJA DE TEXTO GRANDE (Mínimo 3 líneas de alto, letra legible, color claro sobre fondo oscuro)
+                                OutlinedTextField(
+                                    value = aiQueryText,
+                                    onValueChange = { aiQueryText = it },
+                                    placeholder = {
+                                        Text(
+                                            text = "Escribe aquí tu consulta (ej. horario sucursal CCSS Tres Ríos, EBAIS Cartago, sucursales Banco Nacional, AyA, Correos)...",
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF94A3B8),
+                                            lineHeight = 18.sp
+                                        )
+                                    },
+                                    minLines = 3,
+                                    maxLines = 5,
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        fontSize = 14.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Normal,
+                                        lineHeight = 20.sp
+                                    ),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = Color(0xFF1E293B),
+                                        unfocusedContainerColor = Color(0xFF1E293B),
+                                        focusedBorderColor = NeonPurple,
+                                        unfocusedBorderColor = ObsidianCardBorder,
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        cursorColor = NeonPurple
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("public_services_ai_multiline_input")
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // BOTÓN MORADO "Preguntar"
+                                Button(
+                                    onClick = {
+                                        val trimmed = aiQueryText.trim()
+                                        if (trimmed.isNotBlank()) {
+                                            keyboardController?.hide()
+                                            focusManager.clearFocus()
+                                            isAiLoading = true
+                                            aiResponseText = null
+                                            coroutineScope.launch {
+                                                val resp = executeAiPublicServiceQuery(
+                                                    context = context,
+                                                    country = selectedCountry.name,
+                                                    tzLabel = selectedCountry.timeZoneLabel,
+                                                    query = trimmed,
+                                                    onStatusUpdate = { searchStatusMessage = it }
+                                                )
+                                                isAiLoading = false
+                                                aiResponseText = resp
+                                            }
+                                        }
+                                    },
+                                    enabled = !isAiLoading && aiQueryText.isNotBlank(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = NeonPurple,
+                                        contentColor = Color.White,
+                                        disabledContainerColor = ObsidianCard,
+                                        disabledContentColor = TextSecondaryDark
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(46.dp)
+                                        .testTag("public_services_ai_ask_btn")
+                                ) {
+                                    if (isAiLoading) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            CircularProgressIndicator(
+                                                color = Color.White,
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Consultando...",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                        }
+                                    } else {
+                                        Text(
+                                            text = "Preguntar",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+
+                                // 📋 Área de respuesta en vivo donde se muestra la información completa sin cortes
+                                if (!aiResponseText.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = ObsidianCard,
+                                        border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.6f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(14.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text("📋", fontSize = 15.sp)
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "Respuesta en vivo:",
+                                                        color = NeonPurple,
+                                                        fontSize = 12.5.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                                IconButton(
+                                                    onClick = {
+                                                        clipboardManager.setText(AnnotatedString(aiResponseText ?: ""))
+                                                    },
+                                                    modifier = Modifier.size(28.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ContentCopy,
+                                                        contentDescription = "Copiar",
+                                                        tint = TextSecondaryDark,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = aiResponseText ?: "",
+                                                color = Color.White,
+                                                fontSize = 13.5.sp,
+                                                lineHeight = 20.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "⏰ $currentCountryTimeText",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Chips de Categorías (Salud, Bancos, Correos, etc.)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                ServiceCategory.values().forEach { cat ->
-                    val isSelected = cat == selectedCategory
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSelected) ElectricCyan.copy(alpha = 0.18f) else ObsidianCard,
-                        border = BorderStroke(
-                            1.dp,
-                            if (isSelected) ElectricCyan else ObsidianCardBorder
-                        ),
-                        modifier = Modifier.clickable { selectedCategory = cat }
+                // Selección de países
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(cat.emoji, fontSize = 12.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
+                        countries.forEach { c ->
+                            val isSel = c.code == selectedCountry.code
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isSel) ElectricCyan else ObsidianCard,
+                                border = BorderStroke(1.dp, if (isSel) ElectricCyan else ObsidianCardBorder),
+                                modifier = Modifier.clickable {
+                                    selectedCountry = c
+                                    aiResponseText = null
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(c.flag, fontSize = 13.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = c.name,
+                                        color = if (isSel) DarkBackground else TextPrimaryDark,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Barra de Zona Horaria y País Automático (Hora)
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = ObsidianCard,
+                        border = BorderStroke(1.dp, ObsidianCardBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(selectedCountry.flag, fontSize = 18.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = selectedCountry.name.uppercase(),
+                                        color = ElectricCyan,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = ElectricCyan.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = selectedCountry.timeZoneLabel,
+                                        color = ElectricCyan,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = cat.label,
-                                color = if (isSelected) ElectricCyan else TextPrimaryDark,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                text = "⏰ $currentCountryTimeText",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Lista de Servicios Públicos con Horarios y Detalles
-            if (filteredServices.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🏛️", fontSize = 32.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "No se encontraron servicios con ese término",
-                            color = TextSecondaryDark,
-                            fontSize = 13.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Prueba usando la consulta con IA arriba para sedes específicas",
-                            color = ElectricCyan,
-                            fontSize = 11.sp
-                        )
+                // Chips de Categorías (Salud, Bancos, Correos, etc.)
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        ServiceCategory.values().forEach { cat ->
+                            val isSelected = cat == selectedCategory
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) ElectricCyan.copy(alpha = 0.18f) else ObsidianCard,
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) ElectricCyan else ObsidianCardBorder
+                                ),
+                                modifier = Modifier.clickable { selectedCategory = cat }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(cat.emoji, fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = cat.label,
+                                        color = if (isSelected) ElectricCyan else TextPrimaryDark,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+
+                // Lista de Servicios Públicos con Horarios y Detalles
+                if (filteredServices.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("🏛️", fontSize = 32.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "No se encontraron servicios con ese término",
+                                    color = TextSecondaryDark,
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Prueba usando la consulta con IA arriba para sedes específicas",
+                                    color = ElectricCyan,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                } else {
                     items(filteredServices, key = { it.id }) { item ->
                         ServiceItemCard(
                             service = item,
@@ -722,6 +749,10 @@ fun PublicServicesSheet(
                             }
                         )
                     }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
 
@@ -1012,27 +1043,27 @@ fun resolvePublicServiceDirectly(query: String, country: String): String {
 🏛️ **CCSS - Sucursal La Unión / Tres Ríos (Cartago)**
 Caja Costarricense de Seguro Social
 
-• **✅ Horario de atención:**
-  - **Sucursal Administrativa y Financiera (Trámites, Cajas e Incapacidades):**
-    - Lunes a Jueves: 7:00 AM a 4:00 PM (jornada continua).
-    - Viernes: 7:00 AM a 3:00 PM (jornada continua).
-    - Sábados y Domingos: Cerrado.
-    - *Trámites:* Validación de derechos, aseguramiento voluntario/patronal, retiro de incapacidades y convenios de pago.
-  - **Clínica Dr. Diego Miranda Vargas / Área de Salud La Unión (Atención Médica y EBAIS):**
-    - Consulta médica general y EBAIS: Lunes a Jueves 7:00 AM a 4:00 PM | Viernes 7:00 AM a 3:00 PM.
-    - Servicio de Urgencias: Lunes a Domingo de 7:00 AM a 10:00 PM (emergencias de noche o alta complejidad se refieren al Hospital Max Peralta de Cartago o Calderón Guardia).
-    - Farmacia y Despacho de Medicamentos: Lunes a Jueves 7:00 AM a 4:00 PM | Viernes 7:00 AM a 3:00 PM.
+• **✅ Horario completo:**
+  - Sucursal Administrativa y Financiera: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m. (Jornada continua). Sábados y Domingos: Cerrado.
+  - Clínica Dr. Diego Miranda Vargas (Consulta Externa y EBAIS): Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
+  - Farmacia y Despacho de Medicamentos: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
+  - Servicio de Urgencias Médicas: Lunes a Domingo: 7:00 a.m. – 10:00 p.m. (Emergencias nocturnas de alta complejidad se remiten al Hospital Max Peralta o Calderón Guardia).
 
 • **✅ Dirección exacta:**
-  - **Sucursal Administrativa CCSS:** Tres Ríos centro, La Unión, Cartago. Del costado oeste del Parque Central de Tres Ríos, 100 metros al sur y 25 metros al oeste (edificio esquinero CCSS).
-  - **Clínica Dr. Diego Miranda (EBAIS Tres Ríos):** Tres Ríos centro, 200 metros norte y 75 metros este del costado este de la Parroquia Nuestra Señora del Pilar.
+  - **Sucursal Administrativa CCSS:** Tres Ríos centro, cantón de La Unión, Cartago. Del costado oeste del Parque Central de Tres Ríos, 100 metros al sur y 25 metros al oeste (edificio esquinero CCSS).
+  - **Clínica Dr. Diego Miranda (Área de Salud y EBAIS Tres Ríos):** Tres Ríos centro, 200 metros norte y 75 metros este del costado este de la Parroquia Nuestra Señora del Pilar.
 
 • **✅ Teléfono / contacto:**
   - Teléfono directo Sucursal CCSS Tres Ríos: **(+506) 2279-7023 / (+506) 2279-5085**
   - Clínica Dr. Diego Miranda: **(+506) 2279-7128 / (+506) 2279-7129**
   - Central telefónica nacional CCSS: **905-MISALUD (905-647-2583)**
   - Correo electrónico oficial: **sucursal_launion@ccss.sa.cr**
-  - Citas médicas y recetas: App móvil oficial **EDUS** (habilitación diaria de cupos desde las 6:00 AM) y portal web aissfa.ccss.sa.cr
+  - Citas médicas y recetas: App móvil oficial **EDUS** (cupos diarios a partir de las 6:00 a.m.) y portal web aissfa.ccss.sa.cr
+
+• **✅ Días feriados o notas importantes:**
+  - Las oficinas administrativas y la consulta programada cierran los días feriados de ley nacional.
+  - El servicio de urgencias de la clínica atiende de 7:00 a.m. a 10:00 p.m. todos los días, incluidos feriados y fines de semana.
+  - Para trámites patronales, aseguramiento o retiro de incapacidades, presentar cédula de identidad física vigente o DIMEX original.
             """.trimIndent()
         }
 
@@ -1041,18 +1072,23 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Banco Nacional de Costa Rica (BNCR) - Agencia Tres Ríos**
 
-• **✅ Horario de atención:**
-  - Lunes a Viernes: 8:30 AM a 3:45 PM (jornada continua).
+• **✅ Horario completo:**
+  - Lunes a Viernes: 8:30 a.m. – 3:45 p.m. (Jornada continua).
   - Sábados y Domingos: Cerrado.
-  - Cajeros automáticos (ATM) y App BN Móvil: Disponibles 24/7.
+  - Cajeros automáticos (ATM) y App BN Móvil: Disponibles las 24 horas, todos los días.
 
 • **✅ Dirección exacta:**
-  - Tres Ríos centro, La Unión, Cartago. Frente al costado este del Parque Central de Tres Ríos.
+  - Tres Ríos centro, cantón de La Unión, Cartago. Frente al costado este del Parque Central de Tres Ríos.
 
 • **✅ Teléfono / contacto:**
-  - Central telefónica: **(+506) 2212-2000**
+  - Central telefónica nacional: **(+506) 2212-2000**
   - WhatsApp oficial verificado: **(+506) 2212-2000**
   - Sitio web y banca en línea: bncr.fi.cr
+
+• **✅ Días feriados o notas importantes:**
+  - La agencia permanece cerrada durante los feriados oficiales nacionales.
+  - Plataforma de autoservicio y cajeros automáticos operan normalmente en feriados.
+  - Atención preferencial para adultos mayores y mujeres embarazadas durante toda la jornada.
             """.trimIndent()
         }
 
@@ -1061,17 +1097,22 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Banco de Costa Rica (BCR) - Sucursal Tres Ríos**
 
-• **✅ Horario de atención:**
-  - Lunes a Viernes: 9:00 AM a 4:00 PM.
+• **✅ Horario completo:**
+  - Lunes a Viernes: 9:00 a.m. – 4:00 p.m. (Jornada continua).
   - Sábados y Domingos: Cerrado.
-  - Cajeros automáticos: 24/7.
+  - Cajeros automáticos: Disponibles 24/7.
 
 • **✅ Dirección exacta:**
-  - Tres Ríos centro, 75 metros norte del Parque Central de Tres Ríos, cantón de La Unión, Cartago.
+  - Tres Ríos centro, cantón de La Unión, Cartago. 75 metros norte del Parque Central de Tres Ríos.
 
 • **✅ Teléfono / contacto:**
   - Central telefónica BCR: **(+506) 2211-1111**
-  - Citas Punto País (Licencias y pasaportes): **800-BCRCITA (800-227-2482)** o bancobcr.com
+  - WhatsApp de soporte: **(+506) 2211-1111**
+  - Citas Punto País (Licencias de conducir y pasaportes): **800-BCRCITA (800-227-2482)** o bancobcr.com
+
+• **✅ Días feriados o notas importantes:**
+  - Cerrado en feriados oficiales establecidos por el Código de Trabajo.
+  - Los trámites de licencias y pasaportes requieren cita previa obligatoria mediante el portal web o la línea 800-BCRCITA.
             """.trimIndent()
         }
 
@@ -1080,38 +1121,48 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Correos de Costa Rica - Sucursal Tres Ríos (La Unión)**
 
-• **✅ Horario de atención:**
-  - Lunes a Viernes: 8:00 AM a 5:00 PM (jornada continua).
-  - Sábados: 8:00 AM a 12:00 MD.
+• **✅ Horario completo:**
+  - Lunes a Viernes: 8:00 a.m. – 5:00 p.m. (Jornada continua).
+  - Sábados: 8:00 a.m. – 12:00 m.d.
   - Domingos: Cerrado.
 
 • **✅ Dirección exacta:**
-  - Tres Ríos centro, costado sur del Parque Central de Tres Ríos, 50 metros al oeste, contiguo al Centro Parroquial, La Unión, Cartago.
+  - Tres Ríos centro, cantón de La Unión, Cartago. Del costado sur del Parque Central de Tres Ríos, 50 metros al oeste, contiguo al Centro Parroquial.
 
 • **✅ Teléfono / contacto:**
-  - Teléfono sucursal: **(+506) 2279-5012**
+  - Teléfono directo sucursal: **(+506) 2279-5012**
   - Central telefónica nacional: **800-900-2000 / (+506) 2257-8888**
   - WhatsApp oficial: **(+506) 8444-2428**
-  - Servicios: Envíos EMS, encomiendas Pymexpress, apartado postal y certificación digital.
+  - Portal de rastreo y trámites: correos.go.cr
+
+• **✅ Días feriados o notas importantes:**
+  - Sucursal cerrada en feriados de ley.
+  - Servicios prestados: Envíos EMS nacionales e internacionales, encomiendas Pymexpress, apartado postal y firma digital.
             """.trimIndent()
         }
 
         // 5. AyA Tres Ríos / La Unión
         if ((q.contains("aya") || q.contains("acueducto") || q.contains("agua")) && hasTresRios) {
             return """
-🏛️ **Instituto Costarricense de Acueductos y Alcantarillados (AyA) - Tres Ríos**
+🏛️ **Instituto Costarricense de Acueductos y Alcantarillados (AyA) - Oficina Tres Ríos**
 
-• **✅ Horario de atención:**
-  - Plataforma de servicio al cliente: Lunes a Viernes de 7:30 AM a 4:00 PM.
-  - Reporte de averías e interrupciones: Atención telefónica 24/7.
+• **✅ Horario completo:**
+  - Plataforma de servicio al cliente: Lunes a Viernes: 7:30 a.m. – 4:00 p.m. (Jornada continua).
+  - Sábados y Domingos: Cerrado en plataforma presencial.
+  - Reporte de averías y fugas: Atención telefónica 24 horas los 365 días del año.
 
 • **✅ Dirección exacta:**
-  - Tres Ríos centro, 125 metros al oeste del Parque Central de Tres Ríos, cantón de La Unión, Cartago.
+  - Tres Ríos centro, cantón de La Unión, Cartago. 125 metros al oeste del Parque Central de Tres Ríos.
 
 • **✅ Teléfono / contacto:**
-  - Línea gratuita de averías 24/7: **800-REPORTE (800-737-6783)**
+  - Línea gratuita nacional de averías 24/7: **800-REPORTE (800-737-6783)**
   - Teléfono oficina local: **(+506) 2279-0520**
   - WhatsApp oficial AyA: **(+506) 8376-7830**
+  - Trámites en línea: aya.go.cr
+
+• **✅ Días feriados o notas importantes:**
+  - Cajas y atención de trámites cierran en feriados nacionales.
+  - Las cuadrillas técnicas de emergencias y averías trabajan de manera ininterrumpida las 24 horas del día.
             """.trimIndent()
         }
 
@@ -1120,16 +1171,21 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Municipalidad de La Unión (Tres Ríos)**
 
-• **✅ Horario de atención:**
-  - Lunes a Viernes: 7:30 AM a 4:00 PM (Cajas y Plataforma de Atención al Ciudadano).
+• **✅ Horario completo:**
+  - Lunes a Viernes: 7:30 a.m. – 4:00 p.m. (Cajas, Gestión Tributaria y Plataforma de Servicios).
   - Sábados y Domingos: Cerrado.
 
 • **✅ Dirección exacta:**
-  - Tres Ríos centro, costado norte del Parque Central de Tres Ríos, cantón de La Unión, Cartago.
+  - Tres Ríos centro, cantón de La Unión, Cartago. Costado norte del Parque Central de Tres Ríos.
 
 • **✅ Teléfono / contacto:**
   - Central telefónica: **(+506) 2279-5034 / (+506) 2279-7000**
-  - Sitio web oficial: munilaunion.go.cr
+  - Correo de información: **informacion@munilaunion.go.cr**
+  - Portal oficial de trámites y pagos: munilaunion.go.cr
+
+• **✅ Días feriados o notas importantes:**
+  - La municipalidad no labora en feriados oficiales ni durante el asueto del día del cantón.
+  - El pago de impuestos municipales se puede realizar en línea 24/7 mediante la plataforma web.
             """.trimIndent()
         }
 
@@ -1139,37 +1195,47 @@ Caja Costarricense de Seguro Social
 🏛️ **Hospital Dr. Maximiliano Peralta Jiménez (Cartago Centro)**
 Caja Costarricense de Seguro Social
 
-• **✅ Horario de atención:**
-  - Emergencias Médicas y Quirúrgicas: **Abierto 24 horas continuas.**
-  - Consulta externa y citas especializadas: Lunes a Jueves 7:00 AM a 4:00 PM | Viernes 7:00 AM a 3:00 PM.
-  - Sucursal CCSS Cartago Centro (Trámites administrativos): Lunes a Jueves 7:00 AM a 4:00 PM | Viernes 7:00 AM a 3:00 PM.
+• **✅ Horario completo:**
+  - Servicio de Emergencias Médicas y Quirúrgicas: **Abierto 24 horas continuas, los 365 días del año.**
+  - Consulta externa y citas con especialistas: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
+  - Farmacia de Consulta Externa: Lunes a Viernes: 7:00 a.m. – 4:00 p.m. (Farmacia de urgencias opera 24 horas).
+  - Sucursal Administrativa CCSS Cartago: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
 
 • **✅ Dirección exacta:**
   - Cartago Centro, 200 metros al sur del Parque Central de Cartago (Avenida 0, Calle 1).
 
 • **✅ Teléfono / contacto:**
   - Central telefónica Hospital: **(+506) 2550-1999 / (+506) 2550-6400**
-  - Central nacional CCSS: **905-MISALUD (905-647-2583)**
-  - App móvil: EDUS (Expediente Digital Único en Salud).
+  - Central telefónica nacional CCSS: **905-MISALUD (905-647-2583)**
+  - App móvil: **EDUS** (Expediente Digital Único en Salud).
+
+• **✅ Días feriados o notas importantes:**
+  - El área de emergencias nunca cierra (atención ininterrumpida 24/7 en feriados).
+  - La consulta programada y trámites de oficina se reprograman si coinciden con feriados de ley.
             """.trimIndent()
         }
 
-        // 8. San José Hospitales (Calderón Guardia, San Juan de Dios, México, Niños)
+        // 8. San José Hospitales (Calderón Guardia, San Juan de Dios, México)
         if (q.contains("calderon") || q.contains("calderón")) {
             return """
 🏛️ **Hospital Dr. Rafael Ángel Calderón Guardia (San José)**
 Caja Costarricense de Seguro Social
 
-• **✅ Horario de atención:**
-  - Urgencias y Emergencias: **Abierto las 24 horas, todos los días.**
-  - Consulta externa y trámites: Lunes a Jueves 7:00 AM a 4:00 PM | Viernes 7:00 AM a 3:00 PM.
+• **✅ Horario completo:**
+  - Urgencias y Emergencias: **Abierto 24 horas continuas, todos los días del año.**
+  - Consulta Externa y Farmacia General: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
 
 • **✅ Dirección exacta:**
   - San José, Barrio Aranjuez, entre Avenidas 7 y 9, Calle 17.
 
 • **✅ Teléfono / contacto:**
   - Central telefónica: **(+506) 2212-1000**
-  - Citas y expedientes: App EDUS.
+  - Central de citas nacional: **905-MISALUD (905-647-2583)**
+  - Aplicación móvil: EDUS.
+
+• **✅ Días feriados o notas importantes:**
+  - El servicio de urgencias permanece abierto 24/7 todos los feriados.
+  - Para visita a pacientes hospitalizados se requiere presentar documento de identidad en los horarios de visita establecidos por el centro.
             """.trimIndent()
         }
 
@@ -1178,15 +1244,20 @@ Caja Costarricense de Seguro Social
 🏛️ **Hospital San Juan de Dios (San José)**
 Caja Costarricense de Seguro Social
 
-• **✅ Horario de atención:**
-  - Emergencias: **24 horas continuas.**
-  - Consulta externa y farmacia: Lunes a Jueves 7:00 AM a 4:00 PM | Viernes 7:00 AM a 3:00 PM.
+• **✅ Horario completo:**
+  - Emergencias Médicas: **Abierto 24 horas continuas.**
+  - Consulta Externa y Farmacia: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
 
 • **✅ Dirección exacta:**
   - San José centro, Paseo Colón y Calle 14, frente al Parque La Merced.
 
 • **✅ Teléfono / contacto:**
   - Central telefónica: **(+506) 2547-8000**
+  - Central nacional de salud: **905-MISALUD (905-647-2583)**
+
+• **✅ Días feriados o notas importantes:**
+  - Emergencias 24/7 en feriados.
+  - Consulta externa y trámites administrativos se reanudan el día hábil posterior al feriado.
             """.trimIndent()
         }
 
@@ -1195,15 +1266,20 @@ Caja Costarricense de Seguro Social
 🏛️ **Hospital México (San José)**
 Caja Costarricense de Seguro Social
 
-• **✅ Horario de atención:**
-  - Urgencias y Trauma: **24 horas.**
-  - Consulta externa: Lunes a Jueves 7:00 AM a 4:00 PM | Viernes 7:00 AM a 3:00 PM.
+• **✅ Horario completo:**
+  - Urgencias y Centro de Trauma: **Abierto 24 horas continuas.**
+  - Consulta Externa: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
 
 • **✅ Dirección exacta:**
-  - San José, La Uruca, sobre Autopista General Cañas, contiguo al Centro de Recreación del INS.
+  - San José, La Uruca, sobre la Autopista General Cañas, contiguo al Centro de Recreación del INS.
 
 • **✅ Teléfono / contacto:**
   - Central telefónica: **(+506) 2242-6700**
+  - Portal de citas: App oficial EDUS.
+
+• **✅ Días feriados o notas importantes:**
+  - Emergencias 24 horas en feriados y fines de semana.
+  - Servicios de apoyo diagnóstico de urgencia operan de manera continua.
             """.trimIndent()
         }
 
@@ -1212,18 +1288,22 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Caja Costarricense de Seguro Social (CCSS) - Red Nacional**
 
-• **✅ Horario de atención:**
-  - **Sucursales Administrativas y Financieras:** Lunes a Jueves de 7:00 AM a 4:00 PM | Viernes de 7:00 AM a 3:00 PM (jornada continua). Sábados y Domingos cerrado.
-  - **EBAIS y Clínicas Periféricas (Consulta Externa):** Lunes a Jueves de 7:00 AM a 4:00 PM | Viernes de 7:00 AM a 3:00 PM.
-  - **Servicios de Emergencia (Hospitales y CAIS):** Abiertos las 24 horas continuas.
+• **✅ Horario completo:**
+  - Sucursales Administrativas y Financieras: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m. (Jornada continua). Sábados y Domingos cerrado.
+  - EBAIS y Clínicas Periféricas (Consulta Externa): Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
+  - Servicios de Emergencia (Hospitales y CAIS): Abiertos 24 horas continuas todos los días.
 
 • **✅ Dirección exacta:**
-  - Sede Central: San José, Avenida Segunda, Calles 5 y 7. Sedes locales disponibles en los 84 cantones del país.
+  - Sede Central: San José, Avenida Segunda, Calles 5 y 7. Sucursales y EBAIS disponibles en todos los 84 cantones del país.
 
 • **✅ Teléfono / contacto:**
   - Central nacional de atención y citas: **905-MISALUD (905-647-2583)**
   - Central Oficinas Centrales: **(+506) 2539-0000**
-  - Citas médicas y recetas oficiales: App oficial **EDUS** y portal web aissfa.ccss.sa.cr
+  - Citas médicas y recetas oficiales: App móvil oficial **EDUS** y portal web aissfa.ccss.sa.cr
+
+• **✅ Días feriados o notas importantes:**
+  - En días feriados de ley se suspende la consulta programada y la atención en sucursales administrativas.
+  - Los servicios de emergencias y hospitalización operan de forma ininterrumpida las 24 horas.
             """.trimIndent()
         }
 
@@ -1232,19 +1312,23 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Sistema Bancario Nacional de Costa Rica**
 
-• **✅ Horario de atención:**
-  - **Sucursales regulares en calle:** Lunes a Viernes de 8:30 AM a 3:45 PM o 4:00 PM. Sábados cerrado.
-  - **Sucursales en centros comerciales (Malls):** Lunes a Sábado de 10:00 AM a 6:00 PM o 7:00 PM.
-  - **Cajeros automáticos y Banca Móvil:** Disponibles 24/7.
+• **✅ Horario completo:**
+  - Sucursales en calle (Banco Nacional, BCR, Banco Popular): Lunes a Viernes: 8:30 a.m. – 3:45 p.m. Sábados cerrado.
+  - Sucursales en centros comerciales (Malls y Centros Comerciales): Lunes a Sábado: 10:00 a.m. – 6:00 p.m.
+  - Cajeros automáticos (ATM) y Banca Móvil: Disponibles las 24 horas, todos los días.
 
 • **✅ Dirección exacta:**
-  - Red de sucursales en todo el país (Banco Nacional, BCR, Banco Popular y BAC Credomatic).
+  - Red de sucursales distribuidas en las 7 provincias y principales cantones del país.
 
 • **✅ Teléfono / contacto:**
   - Banco Nacional: **(+506) 2212-2000**
   - Banco de Costa Rica (BCR): **(+506) 2211-1111**
   - Banco Popular: **(+506) 2202-2020**
   - BAC Credomatic: **(+506) 2295-9898**
+
+• **✅ Días feriados o notas importantes:**
+  - Todas las sucursales físicas cierran en feriados nacionales obligatorios.
+  - La banca móvil, transferencias SINPE y cajeros automáticos operan con normalidad en días festivos.
             """.trimIndent()
         }
 
@@ -1253,18 +1337,22 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Correos de Costa Rica**
 
-• **✅ Horario de atención:**
-  - Lunes a Viernes de 8:00 AM a 5:00 PM (jornada continua).
-  - Sábados de 8:00 AM a 12:00 MD (sucursales cabecera).
+• **✅ Horario completo:**
+  - Lunes a Viernes: 8:00 a.m. – 5:00 p.m. (Jornada continua).
+  - Sábados: 8:00 a.m. – 12:00 m.d. (Sucursales principales).
   - Domingos: Cerrado.
 
 • **✅ Dirección exacta:**
-  - Sucursales disponibles en los 84 cantones de Costa Rica. Edificio Correo Central: San José, Calle 2, Avenidas 1 y 3.
+  - Sucursales en los 84 cantones del país. Edificio Central de Correos: San José, Calle 2, Avenidas 1 y 3.
 
 • **✅ Teléfono / contacto:**
   - Central de atención al cliente: **800-900-2000 / (+506) 2257-8888**
   - WhatsApp oficial: **(+506) 8444-2428**
-  - Portal de rastreo y trámites: correos.go.cr
+  - Portal de rastreo y servicios: correos.go.cr
+
+• **✅ Días feriados o notas importantes:**
+  - Cerrado en feriados oficiales de ley.
+  - El servicio de apartado postal y casillero virtual Box Correos se administra desde la plataforma web.
             """.trimIndent()
         }
 
@@ -1273,19 +1361,23 @@ Caja Costarricense de Seguro Social
 🏛️ **Información Oficial de Servicios Públicos - Costa Rica**
 Consulta: "$query"
 
-• **✅ Horario de atención:**
-  - Jornada institucional habitual (CCSS, AyA, ICE, Ministerios): Lunes a Jueves de 7:00 AM a 4:00 PM | Viernes de 7:00 AM a 3:00 PM.
-  - Servicios de emergencias médicas y hospitales: 24 horas continuas, los 365 días del año.
-  - Sucursales bancarias: Lunes a Viernes de 8:30 AM a 3:45 PM (calle) / 10:00 AM a 6:00 PM (centros comerciales).
+• **✅ Horario completo:**
+  - Jornada institucional habitual (CCSS, AyA, ICE, Ministerios): Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m. (Jornada continua).
+  - Servicios de emergencias médicas y hospitales: Abierto las 24 horas del día, los 365 días del año.
+  - Sucursales bancarias: Lunes a Viernes: 8:30 a.m. – 3:45 p.m. (Calle) / 10:00 a.m. – 6:00 p.m. (Centros comerciales).
 
 • **✅ Dirección exacta:**
-  - Consulta la sede o cantón específico en el directorio de la institución o en la app oficial.
+  - Sede regional o sucursal correspondiente al cantón de la consulta en Costa Rica.
 
 • **✅ Teléfono / contacto:**
   - Central CCSS: **905-MISALUD (905-647-2583)**
   - Banco Nacional: **(+506) 2212-2000** | BCR: **(+506) 2211-1111**
   - Averías AyA: **800-REPORTE (800-737-6783)**
   - Emergencias nacionales: **9-1-1**
+
+• **✅ Días feriados o notas importantes:**
+  - En feriados oficiales de ley, las oficinas administrativas permanecen cerradas.
+  - Los servicios críticos y de emergencia atienden las 24 horas del día.
         """.trimIndent()
     }
 
@@ -1294,15 +1386,18 @@ Consulta: "$query"
 🏛️ **Información de Servicios Públicos - $country**
 Consulta: "$query"
 
-• **✅ Horario de atención:**
-  - Horario general de entidades públicas: Lunes a Viernes de 8:00 AM a 4:30 PM.
+• **✅ Horario completo:**
+  - Horario general de entidades públicas: Lunes a Viernes: 8:00 a.m. – 4:30 p.m.
   - Emergencias y hospitales: Atención continua las 24 horas.
 
 • **✅ Dirección exacta:**
-  - Oficinas y sedes centrales del área metropolitana o sucursal regional correspondiente.
+  - Oficinas y sedes centrales del área metropolitana o sucursal regional correspondiente en $country.
 
 • **✅ Teléfono / contacto:**
   - Consulta en el portal gubernamental oficial de $country o líneas de atención ciudadana local.
+
+• **✅ Días feriados o notas importantes:**
+  - Entidades públicas no atienden en feriados locales oficiales, salvo servicios esenciales de salud y seguridad.
     """.trimIndent()
 }
 
@@ -1326,17 +1421,21 @@ suspend fun executeAiPublicServiceQuery(
                 Eres el informador oficial de Horarios y Servicios Públicos para $country ($tzLabel).
                 CONSULTA DEL USUARIO: $query
 
-                ESTRUCTURA OBLIGATORIA DE RESPUESTA:
-                • Nombre oficial de la institución o sucursal
-                • ✅ Horario de atención: Horario completo entre semana y fines de semana si aplica
-                • ✅ Dirección exacta: Cantón, distrito y señas de ubicación
-                • ✅ Teléfono / contacto: Teléfono directo, central o canales digitales
+                ESTRUCTURA OBLIGATORIA DE RESPUESTA (Debes proporcionar los 4 puntos sin cortar ninguno):
+                🏛️ [Nombre oficial de la institución o sucursal]
 
-                Sé conciso, directo y entrega datos concretos comprobados de $country.
+                • **✅ Horario completo:** Horario exacto (ejemplo: "Lunes a Viernes: 7:00 a.m. – 4:00 p.m."). Especifica si aplica jornada continua, horarios de fin de semana o si opera 24 horas.
+                • **✅ Dirección exacta:** Provincia, cantón, distrito y señas claras de ubicación de la sucursal.
+                • **✅ Teléfono / contacto:** Teléfonos directos de la sucursal, líneas centrales y canales digitales oficiales (WhatsApp/web).
+                • **✅ Días feriados o notas importantes:** Cierres en días feriados, requisitos indispensables (cédula, cita previa, app EDUS) o notas relevantes. Nunca omitas este campo.
+
+                REGLAS ESTRICTAS:
+                - NO cortar la respuesta — muestra toda la información completa.
+                - NO dejar campos vacíos — si algún dato adicional no estuviera disponible, especifícalo claramente.
             """.trimIndent()
 
             val modelsToTry = listOf("gemini-2.5-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-3.1-flash-lite-preview")
-            val aiResult = withTimeoutOrNull(3500L) {
+            val aiResult = withTimeoutOrNull(4000L) {
                 for (model in modelsToTry) {
                     try {
                         val resp = GeminiClient.service.generateContent(
@@ -1351,7 +1450,7 @@ suspend fun executeAiPublicServiceQuery(
                                 ),
                                 generationConfig = com.example.data.remote.GenerationConfigDto(
                                     temperature = 0.1f,
-                                    maxOutputTokens = 800
+                                    maxOutputTokens = 2048
                                 )
                             )
                         )
