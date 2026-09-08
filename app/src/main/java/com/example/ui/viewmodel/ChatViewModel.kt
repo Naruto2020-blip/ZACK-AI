@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -182,13 +183,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun initDefaultSession() {
         viewModelScope.launch {
-            repository.allSessions.collectLatest { sessionList ->
-                if (sessionList.isEmpty()) {
-                    val newId = repository.createNewSession("")
+            if (_uiState.value.currentSessionId != null) return@launch
+            try {
+                val existing = repository.allSessions.first()
+                if (existing.isNotEmpty()) {
+                    selectSession(existing.first().id)
+                } else {
+                    val newId = repository.createNewSession("Nueva Conversación", _uiState.value.systemPersona)
                     selectSession(newId)
-                } else if (_uiState.value.currentSessionId == null) {
-                    selectSession(sessionList.first().id)
                 }
+            } catch (_: Exception) {
+                val newId = repository.createNewSession("Nueva Conversación", _uiState.value.systemPersona)
+                selectSession(newId)
             }
         }
     }
@@ -234,7 +240,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectSession(sessionId: String) {
-        if (_uiState.value.currentSessionId == sessionId) return
+        if (_uiState.value.currentSessionId == sessionId && messagesJob?.isActive == true) return
         _uiState.value = _uiState.value.copy(currentSessionId = sessionId)
 
         messagesJob?.cancel()
@@ -252,11 +258,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun createNewSession(title: String = "") {
         viewModelScope.launch {
             val newId = repository.createNewSession(title, _uiState.value.systemPersona)
-            _uiState.value = _uiState.value.copy(
-                currentSessionId = newId,
-                messages = emptyList(),
-                currentSessionTitle = ""
-            )
+            selectSession(newId)
         }
     }
 
@@ -267,12 +269,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (remaining.isNotEmpty()) {
                 selectSession(remaining.first().id)
             } else {
-                val newId = repository.createNewSession("")
-                _uiState.value = _uiState.value.copy(
-                    currentSessionId = newId,
-                    messages = emptyList(),
-                    currentSessionTitle = ""
-                )
+                val newId = repository.createNewSession("", _uiState.value.systemPersona)
+                selectSession(newId)
             }
         }
     }
@@ -280,12 +278,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun clearAllSessions() {
         viewModelScope.launch {
             repository.clearAll()
-            val newId = repository.createNewSession("")
-            _uiState.value = _uiState.value.copy(
-                currentSessionId = newId,
-                messages = emptyList(),
-                currentSessionTitle = ""
-            )
+            val newId = repository.createNewSession("", _uiState.value.systemPersona)
+            selectSession(newId)
         }
     }
 
@@ -353,14 +347,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (_uiState.value.isGenerating) return
 
-        val sessionId = _uiState.value.currentSessionId ?: return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isGenerating = true,
-                activeCascadeHop = null
-            )
+            // 1. Asegurar que siempre exista una sesión válida y conectada
+            var sessionId = _uiState.value.currentSessionId
+            if (sessionId == null) {
+                sessionId = repository.createNewSession("Nueva Conversación", _uiState.value.systemPersona)
+                selectSession(sessionId)
+            }
 
-            // Format displayed user message
+            // 2. Formato del mensaje para la interfaz
             val displayMessage = if (currentAttached != null) {
                 val fileTag = if (currentAttached.isImage) "📷 [Foto/Imagen: ${currentAttached.name}]"
                 else "📂 [Documento: ${currentAttached.name}]"
@@ -369,171 +364,212 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 effectivePrompt
             }
 
-            // Save user message to database
-            repository.insertMessage(
+            // 3. Confirmación visual INMEDIATA en la pantalla (optimistic UI): el usuario ve su mensaje al instante
+            val optimisticMsg = ChatMessageEntity(
+                id = System.currentTimeMillis(),
                 sessionId = sessionId,
                 role = "user",
-                content = displayMessage
+                content = displayMessage,
+                timestamp = System.currentTimeMillis()
             )
-
-            // Natural language auto-task / reminder detection
-            val lowerPrompt = rawPrompt.lowercase()
-            if (lowerPrompt.startsWith("recuérdame") || lowerPrompt.startsWith("recuerdame") ||
-                lowerPrompt.startsWith("crear recordatorio") || lowerPrompt.startsWith("recordatorio") ||
-                lowerPrompt.startsWith("crear tarea") || lowerPrompt.startsWith("nueva tarea")
-            ) {
-                val taskTitle = rawPrompt
-                    .replace(Regex("^(recuérdame|recuerdame|crear recordatorio|recordatorio:|crear tarea|nueva tarea)\\s*(que|de|:)?\\s*", RegexOption.IGNORE_CASE), "")
-                    .trim()
-                if (taskTitle.isNotBlank()) {
-                    repository.insertTask(taskTitle)
-                }
-            }
-
-            // 🧠 Registrar hábito de uso para predicciones futuras
-            com.example.util.SmartHabitsManager.recordUserInteraction(getApplication(), effectivePrompt)
-
-            // 🧠 Detectar compromisos o tareas mencionadas para sugerir recordatorio a la hora habitual
-            val detectedCommitment = com.example.util.SmartHabitsManager.detectCommitmentInText(getApplication(), effectivePrompt)
-            _uiState.value = _uiState.value.copy(detectedCommitment = detectedCommitment)
-
-            // Prepare prompt content: if text was extracted from docx/txt/pdf, append it directly into the prompt
-            val fullPromptForModel = if (currentAttached != null && !currentAttached.extractedText.isNullOrBlank()) {
-                """
-                [DOCUMENTO ADJUNTO: ${currentAttached.name}]
-                --- CONTENIDO EXTRAÍDO DEL DOCUMENTO ---
-                ${currentAttached.extractedText}
-                --- FIN DEL CONTENIDO ---
-
-                SOLICITUD DEL USUARIO:
-                $effectivePrompt
-                """.trimIndent()
-            } else {
-                effectivePrompt
-            }
-
-            val history = repository.getMessagesForSessionSync(sessionId)
-            val systemInstruction = getEffectiveSystemInstruction()
-
-            val result = cascadeEngine.executeCascade(
-                history = history,
-                newPrompt = fullPromptForModel,
-                primaryModel = _uiState.value.selectedModel,
-                autoCascadeEnabled = _uiState.value.isAutoCascadeEnabled,
-                systemInstruction = systemInstruction,
-                temperature = _uiState.value.temperature,
-                attachmentMimeType = currentAttached?.mimeType,
-                attachmentBase64 = currentAttached?.base64Data,
-                onCascadeHop = { hop ->
-                    _uiState.value = _uiState.value.copy(activeCascadeHop = hop)
-                }
-            )
-
-            val cascadeReason = if (result.wasCascaded && result.hops.isNotEmpty()) {
-                result.hops.joinToString(" ➔ ") { "${it.fromModel.displayName} (${it.reason})" }
-            } else null
-
-            // Clean letter content if detected
-            val cleanContent = if (!result.isError && (
-                DocumentSignatureDetector.isSignableDocument(result.content) ||
-                result.content.contains("Para redactar", ignoreCase = true) ||
-                result.content.contains("debes completar", ignoreCase = true) ||
-                result.content.contains("[ej:", ignoreCase = true)
-            )) {
-                DocumentCleaner.cleanLetterDocument(result.content, effectivePrompt)
-            } else {
-                result.content
-            }
-
-            // Save model response to database
-            repository.insertMessage(
-                sessionId = sessionId,
-                role = "model",
-                content = cleanContent,
-                modelUsed = result.usedModel.displayName,
-                wasCascaded = result.wasCascaded,
-                cascadeReason = cascadeReason,
-                latencyMs = result.latencyMs,
-                isError = result.isError
-            )
-
             _uiState.value = _uiState.value.copy(
-                isGenerating = false,
+                isGenerating = true,
                 activeCascadeHop = null,
-                attachedFile = null // Clear attachment after successful message
+                messages = _uiState.value.messages + optimisticMsg,
+                attachedFile = null // Limpiar archivo adjunto de inmediato
             )
+
+            try {
+                // Guardar mensaje de usuario en base de datos
+                repository.insertMessage(
+                    sessionId = sessionId,
+                    role = "user",
+                    content = displayMessage
+                )
+
+                // Detección de recordatorios automáticos
+                val lowerPrompt = rawPrompt.lowercase()
+                if (lowerPrompt.startsWith("recuérdame") || lowerPrompt.startsWith("recuerdame") ||
+                    lowerPrompt.startsWith("crear recordatorio") || lowerPrompt.startsWith("recordatorio") ||
+                    lowerPrompt.startsWith("crear tarea") || lowerPrompt.startsWith("nueva tarea")
+                ) {
+                    val taskTitle = rawPrompt
+                        .replace(Regex("^(recuérdame|recuerdame|crear recordatorio|recordatorio:|crear tarea|nueva tarea)\\s*(que|de|:)?\\s*", RegexOption.IGNORE_CASE), "")
+                        .trim()
+                    if (taskTitle.isNotBlank()) {
+                        repository.insertTask(taskTitle)
+                    }
+                }
+
+                // 🧠 Registrar hábito de uso para predicciones futuras
+                com.example.util.SmartHabitsManager.recordUserInteraction(getApplication(), effectivePrompt)
+
+                // 🧠 Detectar compromisos o tareas mencionadas para sugerir recordatorio a la hora habitual
+                val detectedCommitment = com.example.util.SmartHabitsManager.detectCommitmentInText(getApplication(), effectivePrompt)
+                _uiState.value = _uiState.value.copy(detectedCommitment = detectedCommitment)
+
+                // Preparar contenido completo para el modelo
+                val fullPromptForModel = if (currentAttached != null && !currentAttached.extractedText.isNullOrBlank()) {
+                    """
+                    [DOCUMENTO ADJUNTO: ${currentAttached.name}]
+                    --- CONTENIDO EXTRAÍDO DEL DOCUMENTO ---
+                    ${currentAttached.extractedText}
+                    --- FIN DEL CONTENIDO ---
+
+                    SOLICITUD DEL USUARIO:
+                    $effectivePrompt
+                    """.trimIndent()
+                } else {
+                    effectivePrompt
+                }
+
+                val history = repository.getMessagesForSessionSync(sessionId)
+                val systemInstruction = getEffectiveSystemInstruction()
+
+                val result = cascadeEngine.executeCascade(
+                    history = history,
+                    newPrompt = fullPromptForModel,
+                    primaryModel = _uiState.value.selectedModel,
+                    autoCascadeEnabled = _uiState.value.isAutoCascadeEnabled,
+                    systemInstruction = systemInstruction,
+                    temperature = _uiState.value.temperature,
+                    attachmentMimeType = currentAttached?.mimeType,
+                    attachmentBase64 = currentAttached?.base64Data,
+                    onCascadeHop = { hop ->
+                        _uiState.value = _uiState.value.copy(activeCascadeHop = hop)
+                    }
+                )
+
+                val cascadeReason = if (result.wasCascaded && result.hops.isNotEmpty()) {
+                    result.hops.joinToString(" ➔ ") { "${it.fromModel.displayName} (${it.reason})" }
+                } else null
+
+                // Limpiar contenido de carta oficial si aplica
+                val cleanContent = if (!result.isError && (
+                    DocumentSignatureDetector.isSignableDocument(result.content) ||
+                    result.content.contains("Para redactar", ignoreCase = true) ||
+                    result.content.contains("debes completar", ignoreCase = true) ||
+                    result.content.contains("[ej:", ignoreCase = true)
+                )) {
+                    DocumentCleaner.cleanLetterDocument(result.content, effectivePrompt)
+                } else {
+                    result.content
+                }
+
+                // Guardar respuesta del modelo en base de datos
+                repository.insertMessage(
+                    sessionId = sessionId,
+                    role = "model",
+                    content = cleanContent,
+                    modelUsed = result.usedModel.displayName,
+                    wasCascaded = result.wasCascaded,
+                    cascadeReason = cascadeReason,
+                    latencyMs = result.latencyMs,
+                    isError = result.isError
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("ChatViewModel", "Error procesando mensaje", e)
+                _uiState.value = _uiState.value.copy(
+                    snackbarMessage = "No se pudo procesar la respuesta. Intenta de nuevo."
+                )
+            } finally {
+                // Siempre liberar el estado de carga para no quedarse pegado
+                _uiState.value = _uiState.value.copy(
+                    isGenerating = false,
+                    activeCascadeHop = null
+                )
+            }
         }
     }
 
     fun sendRawAudioMessage(audioBase64: String, mimeType: String = "audio/mp4", durationSeconds: Int = 1) {
         if (_uiState.value.isGenerating) return
-        val sessionId = _uiState.value.currentSessionId ?: return
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isGenerating = true,
-                activeCascadeHop = null
-            )
-
-            val displayMessage = "🎙️ [Pregunta de Voz Original: ${durationSeconds}s]"
-
-            // Save user audio message to database
-            repository.insertMessage(
-                sessionId = sessionId,
-                role = "user",
-                content = displayMessage
-            )
-
-            val promptForModel = "Por favor escucha con atención este audio de mi voz original y responde a mi pregunta o solicitud de forma clara, precisa y estructurada en español."
-            val history = repository.getMessagesForSessionSync(sessionId)
-            val systemInstruction = getEffectiveSystemInstruction()
-
-            val result = cascadeEngine.executeCascade(
-                history = history,
-                newPrompt = promptForModel,
-                primaryModel = _uiState.value.selectedModel,
-                autoCascadeEnabled = _uiState.value.isAutoCascadeEnabled,
-                systemInstruction = systemInstruction,
-                temperature = _uiState.value.temperature,
-                attachmentMimeType = mimeType,
-                attachmentBase64 = audioBase64,
-                onCascadeHop = { hop ->
-                    _uiState.value = _uiState.value.copy(activeCascadeHop = hop)
-                }
-            )
-
-            val cascadeReason = if (result.wasCascaded && result.hops.isNotEmpty()) {
-                result.hops.joinToString(" ➔ ") { "${it.fromModel.displayName} (${it.reason})" }
-            } else null
-
-            // Clean letter content if detected
-            val cleanContent = if (!result.isError && (
-                DocumentSignatureDetector.isSignableDocument(result.content) ||
-                result.content.contains("Para redactar", ignoreCase = true) ||
-                result.content.contains("debes completar", ignoreCase = true) ||
-                result.content.contains("[ej:", ignoreCase = true)
-            )) {
-                DocumentCleaner.cleanLetterDocument(result.content)
-            } else {
-                result.content
+            var sessionId = _uiState.value.currentSessionId
+            if (sessionId == null) {
+                sessionId = repository.createNewSession("Nueva Conversación", _uiState.value.systemPersona)
+                selectSession(sessionId)
             }
 
-            // Save model response to database
-            repository.insertMessage(
+            val displayMessage = "🎙️ [Pregunta de Voz Original: ${durationSeconds}s]"
+            val optimisticMsg = ChatMessageEntity(
+                id = System.currentTimeMillis(),
                 sessionId = sessionId,
-                role = "model",
-                content = cleanContent,
-                modelUsed = result.usedModel.displayName,
-                wasCascaded = result.wasCascaded,
-                cascadeReason = cascadeReason,
-                latencyMs = result.latencyMs,
-                isError = result.isError
+                role = "user",
+                content = displayMessage,
+                timestamp = System.currentTimeMillis()
+            )
+            _uiState.value = _uiState.value.copy(
+                isGenerating = true,
+                activeCascadeHop = null,
+                messages = _uiState.value.messages + optimisticMsg
             )
 
-            _uiState.value = _uiState.value.copy(
-                isGenerating = false,
-                activeCascadeHop = null
-            )
+            try {
+                // Guardar audio en base de datos
+                repository.insertMessage(
+                    sessionId = sessionId,
+                    role = "user",
+                    content = displayMessage
+                )
+
+                val promptForModel = "Por favor escucha con atención este audio de mi voz original y responde a mi pregunta o solicitud de forma clara, precisa y estructurada en español."
+                val history = repository.getMessagesForSessionSync(sessionId)
+                val systemInstruction = getEffectiveSystemInstruction()
+
+                val result = cascadeEngine.executeCascade(
+                    history = history,
+                    newPrompt = promptForModel,
+                    primaryModel = _uiState.value.selectedModel,
+                    autoCascadeEnabled = _uiState.value.isAutoCascadeEnabled,
+                    systemInstruction = systemInstruction,
+                    temperature = _uiState.value.temperature,
+                    attachmentMimeType = mimeType,
+                    attachmentBase64 = audioBase64,
+                    onCascadeHop = { hop ->
+                        _uiState.value = _uiState.value.copy(activeCascadeHop = hop)
+                    }
+                )
+
+                val cascadeReason = if (result.wasCascaded && result.hops.isNotEmpty()) {
+                    result.hops.joinToString(" ➔ ") { "${it.fromModel.displayName} (${it.reason})" }
+                } else null
+
+                // Clean letter content if detected
+                val cleanContent = if (!result.isError && (
+                    DocumentSignatureDetector.isSignableDocument(result.content) ||
+                    result.content.contains("Para redactar", ignoreCase = true) ||
+                    result.content.contains("debes completar", ignoreCase = true) ||
+                    result.content.contains("[ej:", ignoreCase = true)
+                )) {
+                    DocumentCleaner.cleanLetterDocument(result.content)
+                } else {
+                    result.content
+                }
+
+                // Save model response to database
+                repository.insertMessage(
+                    sessionId = sessionId,
+                    role = "model",
+                    content = cleanContent,
+                    modelUsed = result.usedModel.displayName,
+                    wasCascaded = result.wasCascaded,
+                    cascadeReason = cascadeReason,
+                    latencyMs = result.latencyMs,
+                    isError = result.isError
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("ChatViewModel", "Error procesando audio", e)
+                _uiState.value = _uiState.value.copy(
+                    snackbarMessage = "No se pudo procesar el audio. Intenta de nuevo."
+                )
+            } finally {
+                _uiState.value = _uiState.value.copy(
+                    isGenerating = false,
+                    activeCascadeHop = null
+                )
+            }
         }
     }
 

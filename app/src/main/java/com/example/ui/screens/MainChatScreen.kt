@@ -347,10 +347,11 @@ fun MainChatScreen(
         }
     }
 
-    // Auto-scroll to latest message
+    // Auto-scroll to latest message or generating indicator
     LaunchedEffect(uiState.messages.size, uiState.isGenerating) {
         if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
+            val targetIndex = if (uiState.isGenerating) uiState.messages.size else uiState.messages.size - 1
+            listState.animateScrollToItem(targetIndex.coerceAtLeast(0))
         }
     }
 
@@ -645,9 +646,11 @@ fun MainChatScreen(
                     inputText = inputText,
                     onTextChanged = { inputText = it },
                     onSend = {
-                        val toSend = inputText
-                        inputText = ""
-                        viewModel.sendMessage(toSend)
+                        val toSend = inputText.trim()
+                        if (toSend.isNotBlank() && !uiState.isGenerating) {
+                            inputText = ""
+                            viewModel.sendMessage(toSend)
+                        }
                     },
                     onVoiceRecord = {
                         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -1259,7 +1262,7 @@ fun ChatInputBar(
                                 }
                             }
                         )
-                        .clickable(enabled = (inputText.isNotBlank() || isGenerating.not()) && !isGenerating) {
+                        .clickable(enabled = inputText.isNotBlank() && !isGenerating) {
                             onSend()
                         }
                         .testTag("send_message_button"),
