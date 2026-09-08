@@ -93,7 +93,6 @@ import com.example.ui.components.ChatMessageBubble
 import com.example.ui.components.DocumentToolsDialog
 import com.example.ui.components.FavoritesSheet
 import com.example.ui.components.FilePickerMenu
-import com.example.ui.components.ImageGeneratorSheet
 import com.example.ui.components.RealtimeCameraSheet
 import com.example.ui.components.SettingsSheet
 import com.example.ui.components.ShoppingListSheet
@@ -131,7 +130,6 @@ fun MainChatScreen(
     var showFavoritesSheet by remember { mutableStateOf(false) }
     var showTasksSheet by remember { mutableStateOf(false) }
     var showShoppingListSheet by remember { mutableStateOf(false) }
-    var showImageGeneratorSheet by remember { mutableStateOf(false) }
     var showDocToolsDialog by remember { mutableStateOf(false) }
     var showRealtimeCameraSheet by remember { mutableStateOf(false) }
 
@@ -404,10 +402,6 @@ fun MainChatScreen(
                     showShoppingListSheet = true
                 },
                 shoppingItemsCount = shoppingList.size,
-                onOpenImageGenerator = {
-                    coroutineScope.launch { drawerState.close() }
-                    showImageGeneratorSheet = true
-                },
                 onOpenDocTools = {
                     coroutineScope.launch { drawerState.close() }
                     showDocToolsDialog = true
@@ -729,13 +723,6 @@ fun MainChatScreen(
                 viewModel.clearAllShoppingItems()
             },
             onDismiss = { showShoppingListSheet = false }
-        )
-    }
-
-    // 🎨 Creador de Imágenes con IA Modal
-    if (showImageGeneratorSheet) {
-        ImageGeneratorSheet(
-            onDismiss = { showImageGeneratorSheet = false }
         )
     }
 

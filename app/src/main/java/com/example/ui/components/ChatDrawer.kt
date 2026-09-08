@@ -89,7 +89,6 @@ fun ChatDrawerContent(
     onOpenTasks: () -> Unit = {},
     onOpenShoppingList: () -> Unit = {},
     shoppingItemsCount: Int = 0,
-    onOpenImageGenerator: () -> Unit = {},
     onOpenDocTools: () -> Unit = {},
     onOpenRealtimeCamera: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -461,40 +460,7 @@ fun ChatDrawerContent(
                         }
                     }
 
-                    // 2. 🎨 Crear imagen con IA
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onOpenImageGenerator() }
-                            .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
-                            .testTag("drawer_image_generator_button"),
-                        color = ObsidianCard,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Palette,
-                                contentDescription = "Crear imagen con IA",
-                                tint = NeonPurple,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Crear imagen con IA",
-                                color = TextPrimaryDark,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    // 3. 📷 Cámara en Tiempo Real (Lens)
+                    // 2. 📷 Cámara en Tiempo Real (Lens)
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
