@@ -11,6 +11,7 @@ import com.example.data.remote.GeminiClient
 import com.example.domain.CascadeEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
@@ -174,17 +175,25 @@ object CameraLensManager {
             - Sé muy exacto al leer texto, montos, números y códigos.
         """.trimIndent()
 
-        // Ejecutar a través de la API de Gemini usando los modelos visuales más rápidos
+        // Modelos visuales multimodales de Google Gemini compatibles con generateContent
         val visionModels = listOf(
+            "gemini-flash-latest",
+            "gemini-3.5-flash",
+            "gemini-3.1-flash-lite-preview",
             "gemini-2.5-flash",
-            "gemini-3-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash"
+            "gemini-3.1-pro-preview"
         )
+
+        val promptWithInstructions = """
+            $systemInstruction
+            
+            $prompt
+        """.trimIndent()
 
         var lastError: String? = null
         for (modelId in visionModels) {
             try {
+                // Petición estándar multimodal con compatibilidad total para todos los modelos
                 val response = GeminiClient.service.generateContent(
                     model = modelId,
                     apiKeyQuery = apiKey,
@@ -199,12 +208,9 @@ object CameraLensManager {
                                             data = base64Jpeg
                                         )
                                     ),
-                                    com.example.data.remote.PartDto(text = prompt)
+                                    com.example.data.remote.PartDto(text = promptWithInstructions)
                                 )
                             )
-                        ),
-                        systemInstruction = com.example.data.remote.ContentDto(
-                            parts = listOf(com.example.data.remote.PartDto(text = systemInstruction))
                         ),
                         generationConfig = com.example.data.remote.GenerationConfigDto(
                             temperature = 0.2f,
@@ -250,7 +256,22 @@ object CameraLensManager {
                         )
                     }
                 } else {
-                    lastError = response.errorBody()?.string()
+                    val code = response.code()
+                    val errorRaw = response.errorBody()?.string() ?: ""
+                    lastError = when (code) {
+                        429 -> "Límite de peticiones alcanzado. Espera unos segundos y vuelve a intentar."
+                        403 -> "Clave de API inválida o sin permisos para visión artificial."
+                        404 -> null // Continuar al siguiente modelo silenciosamente
+                        else -> {
+                            try {
+                                val json = JSONObject(errorRaw)
+                                val errObj = json.optJSONObject("error")
+                                errObj?.optString("message") ?: errorRaw
+                            } catch (e: Exception) {
+                                errorRaw.ifBlank { "Error del servidor ($code)" }
+                            }
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 lastError = e.localizedMessage
@@ -258,7 +279,7 @@ object CameraLensManager {
         }
 
         Result.failure(
-            IllegalStateException(lastError ?: "No fue posible analizar la imagen. Intenta enfocar nuevamente.")
+            IllegalStateException(lastError ?: "No fue posible analizar la imagen. Por favor, reintenta enfocar.")
         )
     }
 }
