@@ -71,6 +71,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -93,11 +94,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.example.ui.theme.AmberGold
 import com.example.ui.theme.DarkBackground
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.NeonPurple
@@ -186,7 +189,8 @@ fun RealtimeCameraSheet(
                         val result = CameraLensManager.analyzeImage(
                             context = context,
                             base64Jpeg = base64,
-                            mode = selectedMode
+                            mode = selectedMode,
+                            bitmap = bitmap
                         )
                         isAnalyzing = false
                         result.onSuccess {
@@ -593,12 +597,123 @@ fun RealtimeCameraSheet(
                                 .weight(1f, fill = false)
                                 .verticalScroll(rememberScrollState())
                         ) {
-                            Text(
-                                text = res.textResult,
-                                color = TextPrimaryDark,
-                                fontSize = 14.sp,
-                                lineHeight = 20.sp
-                            )
+                            if (res.mode == CameraLensManager.LensMode.QR_BARCODE && res.barcodeDetails != null) {
+                                val details = res.barcodeDetails
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    // 📌 1. NÚMERO DEL CÓDIGO (Grande, claro y con tipo de código)
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color(0xFF0F172A),
+                                        border = BorderStroke(1.2.dp, ElectricCyan.copy(alpha = 0.6f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "TIPO: ${details.codeType.uppercase()}",
+                                                    color = ElectricCyan,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = 1.sp
+                                                )
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = ElectricCyan.copy(alpha = 0.2f)
+                                                ) {
+                                                    Text(
+                                                        text = "IDENTIFICADOR OFICIAL",
+                                                        color = ElectricCyan,
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = details.codeNumber,
+                                                color = Color.White,
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                fontFamily = FontFamily.Monospace,
+                                                letterSpacing = 1.5.sp
+                                            )
+                                        }
+                                    }
+
+                                    // 📌 2. INFORMACIÓN DEL PRODUCTO (Obtenida por consulta del código)
+                                    if (!details.productName.isNullOrBlank() || !details.brand.isNullOrBlank()) {
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = Color(0xFF1E293B).copy(alpha = 0.7f),
+                                            border = BorderStroke(1.dp, Color(0xFF334155)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "INFORMACIÓN DEL PRODUCTO (Por Código)",
+                                                    color = AmberGold,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                HorizontalDivider(color = Color(0xFF334155), thickness = 0.8.dp)
+
+                                                details.productName?.let {
+                                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                                        Text("• Producto: ", color = TextSecondaryDark, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                                        Text(it, color = TextPrimaryDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                }
+                                                details.brand?.let {
+                                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                                        Text("• Marca: ", color = TextSecondaryDark, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                                        Text(it, color = TextPrimaryDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                                    }
+                                                }
+                                                details.category?.let {
+                                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                                        Text("• Categoría: ", color = TextSecondaryDark, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                                        Text(it, color = TextPrimaryDark, fontSize = 13.sp)
+                                                    }
+                                                }
+                                                details.presentation?.let {
+                                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                                        Text("• Presentación: ", color = TextSecondaryDark, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                                        Text(it, color = TextPrimaryDark, fontSize = 13.sp)
+                                                    }
+                                                }
+                                                details.countryOrigin?.let {
+                                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                                        Text("• País / GS1: ", color = TextSecondaryDark, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                                        Text(it, color = ElectricCyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Text(
+                                            text = res.textResult,
+                                            color = TextPrimaryDark,
+                                            fontSize = 14.sp,
+                                            lineHeight = 20.sp
+                                        )
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    text = res.textResult,
+                                    color = TextPrimaryDark,
+                                    fontSize = 14.sp,
+                                    lineHeight = 20.sp
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))

@@ -300,43 +300,6 @@ fun FilePickerMenu(
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Default.Visibility,
-                            contentDescription = null,
-                            tint = ElectricCyan,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Cámara en Tiempo Real", color = TextPrimaryDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = ElectricCyan.copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        "LENS",
-                                        color = ElectricCyan,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-                            Text("Reconoce texto, objetos, QR y facturas", color = TextSecondaryDark, fontSize = 10.sp)
-                        }
-                    }
-                },
-                onClick = {
-                    showMenu = false
-                    onOpenRealtimeCamera()
-                }
-            )
-
-            DropdownMenuItem(
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
                             imageVector = Icons.Default.CameraAlt,
                             contentDescription = null,
                             tint = AmberGold,
