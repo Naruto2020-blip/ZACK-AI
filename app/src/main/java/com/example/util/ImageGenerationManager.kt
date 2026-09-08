@@ -119,10 +119,32 @@ object ImageGenerationManager {
             }
         }
 
+        // Si Gemini falló por límite de cuota (limit: 0 o quota exceeded en Free Tier), intentar motor de respaldo para no dejar al usuario sin imagen
+        if (lastError?.contains("limit: 0", ignoreCase = true) == true ||
+            lastError?.contains("quota", ignoreCase = true) == true ||
+            lastError?.contains("429", ignoreCase = true) == true ||
+            lastError?.contains("RESOURCE_EXHAUSTED", ignoreCase = true) == true) {
+            try {
+                Log.d(TAG, "Gemini quota exceeded or limit 0, attempting high-quality AI fallback engine...")
+                val fallbackBitmap = callFallbackImageEngine(promptClean, aspectRatio)
+                if (fallbackBitmap != null) {
+                    val aiImage = GeneratedAiImage(
+                        prompt = promptClean,
+                        bitmap = fallbackBitmap,
+                        aspectRatio = aspectRatio,
+                        modelUsed = "IA de Respaldo (Sin límites)"
+                    )
+                    return@withContext Result.success(aiImage)
+                }
+            } catch (fallbackEx: Exception) {
+                Log.e(TAG, "Fallback engine also failed", fallbackEx)
+            }
+        }
+
         val isLimitZero = lastError?.contains("limit: 0", ignoreCase = true) == true
         val errorMessage = when {
             isLimitZero ->
-                "Google no asigna cuota de imágenes a la clave genérica de desarrollo (límite 0 de peticiones). Para generar imágenes, ingresa tu propia clave de Gemini de Google AI Studio tocando el botón 'Configurar API Key' abajo."
+                "Google no asigna cuota de imágenes a proyectos de Gemini sin facturación de Google Cloud (límite 0 de peticiones). Activa la facturación en tu consola de Google AI Studio o verifica tu clave."
             lastError?.contains("quota", ignoreCase = true) == true ||
             lastError?.contains("429", ignoreCase = true) == true ||
             lastError?.contains("RESOURCE_EXHAUSTED", ignoreCase = true) == true ->
@@ -136,6 +158,29 @@ object ImageGenerationManager {
         }
 
         Result.failure(Exception(errorMessage))
+    }
+
+    private fun callFallbackImageEngine(prompt: String, aspectRatio: String): Bitmap? {
+        val (width, height) = when (aspectRatio) {
+            "16:9" -> 1024 to 576
+            "9:16" -> 576 to 1024
+            "4:3" -> 1024 to 768
+            else -> 1024 to 1024
+        }
+        val encoded = java.net.URLEncoder.encode(prompt, "UTF-8")
+        val url = "https://image.pollinations.ai/prompt/$encoded?width=$width&height=$height&nologo=true&seed=${System.currentTimeMillis() % 100000}"
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("User-Agent", "ZackAI/1.0")
+            .build()
+        val response = httpClient.newCall(request).execute()
+        if (response.isSuccessful) {
+            val bytes = response.body?.bytes()
+            if (bytes != null && bytes.isNotEmpty()) {
+                return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
+        }
+        return null
     }
 
     private fun callGeminiImageEndpoint(
