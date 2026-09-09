@@ -203,6 +203,7 @@ fun PublicServicesSheet(
     var isAiLoading by remember { mutableStateOf(false) }
     var searchStatusMessage by remember { mutableStateOf("Buscando información actualizada...") }
     var aiResponseText by rememberSaveable { mutableStateOf<String?>(null) }
+    var showFullAiInfo by rememberSaveable { mutableStateOf(false) }
     var showAiQueryBox by rememberSaveable { mutableStateOf(true) }
 
     // Reloj dinámico en tiempo real para el país seleccionado
@@ -465,7 +466,7 @@ fun PublicServicesSheet(
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // BOTÓN MORADO "Preguntar"
+                                 // BOTÓN MORADO "Preguntar"
                                 Button(
                                     onClick = {
                                         val trimmed = aiQueryText.trim()
@@ -474,6 +475,7 @@ fun PublicServicesSheet(
                                             focusManager.clearFocus()
                                             isAiLoading = true
                                             aiResponseText = null
+                                            showFullAiInfo = false
                                             coroutineScope.launch {
                                                 val resp = executeAiPublicServiceQuery(
                                                     context = context,
@@ -525,9 +527,27 @@ fun PublicServicesSheet(
                                     }
                                 }
 
-                                // 📋 Área de respuesta en vivo donde se muestra la información completa sin cortes
+                                // 📋 Área de respuesta en vivo: Formato limpio y esencial por defecto
                                 if (!aiResponseText.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.height(10.dp))
+                                    val fullRawText = aiResponseText ?: ""
+                                    val separator = "---INFORMACION_COMPLETA---"
+                                    val hasSeparator = fullRawText.contains(separator)
+                                    val (essentialText, extraText) = if (hasSeparator) {
+                                        Pair(
+                                            fullRawText.substringBefore(separator).trim(),
+                                            fullRawText.substringAfter(separator).trim()
+                                        )
+                                    } else if (fullRawText.contains("• **✅ Días feriados") || fullRawText.contains("• Días feriados")) {
+                                        val marker = if (fullRawText.contains("• **✅ Días feriados")) "• **✅ Días feriados" else "• Días feriados"
+                                        Pair(
+                                            fullRawText.substringBefore(marker).trim(),
+                                            marker + fullRawText.substringAfter(marker).trim()
+                                        )
+                                    } else {
+                                        Pair(fullRawText.trim(), "")
+                                    }
+
                                     Surface(
                                         shape = RoundedCornerShape(10.dp),
                                         color = ObsidianCard,
@@ -544,7 +564,7 @@ fun PublicServicesSheet(
                                                     Text("📋", fontSize = 15.sp)
                                                     Spacer(modifier = Modifier.width(6.dp))
                                                     Text(
-                                                        text = "Respuesta en vivo:",
+                                                        text = "Consulta Rápida:",
                                                         color = NeonPurple,
                                                         fontSize = 12.5.sp,
                                                         fontWeight = FontWeight.Bold
@@ -552,7 +572,12 @@ fun PublicServicesSheet(
                                                 }
                                                 IconButton(
                                                     onClick = {
-                                                        clipboardManager.setText(AnnotatedString(aiResponseText ?: ""))
+                                                        val copyContent = if (showFullAiInfo && extraText.isNotBlank()) {
+                                                            "$essentialText\n\n$extraText"
+                                                        } else {
+                                                            essentialText
+                                                        }
+                                                        clipboardManager.setText(AnnotatedString(copyContent))
                                                     },
                                                     modifier = Modifier.size(28.dp)
                                                 ) {
@@ -564,13 +589,68 @@ fun PublicServicesSheet(
                                                     )
                                                 }
                                             }
+
                                             Spacer(modifier = Modifier.height(8.dp))
+
+                                            // 🕒 Horario + 📍 Ubicación + 📞 Teléfono (Limpio y rápido)
                                             Text(
-                                                text = aiResponseText ?: "",
+                                                text = essentialText,
                                                 color = Color.White,
                                                 fontSize = 13.5.sp,
                                                 lineHeight = 20.sp
                                             )
+
+                                            // Botón opcional al final: 📋 Ver información completa
+                                            if (extraText.isNotBlank()) {
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Button(
+                                                    onClick = { showFullAiInfo = !showFullAiInfo },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = if (showFullAiInfo) ObsidianBackground else NeonPurple.copy(alpha = 0.2f),
+                                                        contentColor = if (showFullAiInfo) TextPrimaryDark else NeonPurple
+                                                    ),
+                                                    border = BorderStroke(
+                                                        1.dp,
+                                                        if (showFullAiInfo) ObsidianCardBorder else NeonPurple.copy(alpha = 0.5f)
+                                                    ),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(38.dp)
+                                                        .testTag("toggle_full_info_btn")
+                                                ) {
+                                                    Text(
+                                                        text = if (showFullAiInfo) "🔼 Ocultar información completa" else "📋 Ver información completa",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                }
+
+                                                AnimatedVisibility(
+                                                    visible = showFullAiInfo,
+                                                    enter = expandVertically() + fadeIn(),
+                                                    exit = shrinkVertically() + fadeOut()
+                                                ) {
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(top = 10.dp)
+                                                    ) {
+                                                        HorizontalDivider(
+                                                            color = ObsidianCardBorder,
+                                                            thickness = 1.dp,
+                                                            modifier = Modifier.padding(bottom = 8.dp)
+                                                        )
+                                                        Text(
+                                                            text = extraText,
+                                                            color = Color(0xFFCBD5E1),
+                                                            fontSize = 12.5.sp,
+                                                            lineHeight = 19.sp
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1041,29 +1121,28 @@ fun resolvePublicServiceDirectly(query: String, country: String): String {
         if (hasHealthWord && hasTresRios) {
             return """
 🏛️ **CCSS - Sucursal La Unión / Tres Ríos (Cartago)**
-Caja Costarricense de Seguro Social
 
-• **✅ Horario completo:**
-  - Sucursal Administrativa y Financiera: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m. (Jornada continua). Sábados y Domingos: Cerrado.
-  - Clínica Dr. Diego Miranda Vargas (Consulta Externa y EBAIS): Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
-  - Farmacia y Despacho de Medicamentos: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
-  - Servicio de Urgencias Médicas: Lunes a Domingo: 7:00 a.m. – 10:00 p.m. (Emergencias nocturnas de alta complejidad se remiten al Hospital Max Peralta o Calderón Guardia).
+🕒 1. HORARIO
+Horario: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m.
+Cerrado: fines de semana y días feriados
 
-• **✅ Dirección exacta:**
-  - **Sucursal Administrativa CCSS:** Tres Ríos centro, cantón de La Unión, Cartago. Del costado oeste del Parque Central de Tres Ríos, 100 metros al sur y 25 metros al oeste (edificio esquinero CCSS).
-  - **Clínica Dr. Diego Miranda (Área de Salud y EBAIS Tres Ríos):** Tres Ríos centro, 200 metros norte y 75 metros este del costado este de la Parroquia Nuestra Señora del Pilar.
+📍 2. UBICACIÓN:
+Provincia: Cartago
+Cantón: La Unión
+Distrito: Tres Ríos
+Dirección exacta: 100 m este y 25 m norte de la esquina noreste del Parque de Tres Ríos (frente al costado norte de la Iglesia Católica)
 
-• **✅ Teléfono / contacto:**
-  - Teléfono directo Sucursal CCSS Tres Ríos: **(+506) 2279-7023 / (+506) 2279-5085**
-  - Clínica Dr. Diego Miranda: **(+506) 2279-7128 / (+506) 2279-7129**
-  - Central telefónica nacional CCSS: **905-MISALUD (905-647-2583)**
-  - Correo electrónico oficial: **sucursal_launion@ccss.sa.cr**
-  - Citas médicas y recetas: App móvil oficial **EDUS** (cupos diarios a partir de las 6:00 a.m.) y portal web aissfa.ccss.sa.cr
+📞 3. TELÉFONO
+Teléfono: 2279-4242 / 2279-4343 / 2279-7023
 
-• **✅ Días feriados o notas importantes:**
-  - Las oficinas administrativas y la consulta programada cierran los días feriados de ley nacional.
-  - El servicio de urgencias de la clínica atiende de 7:00 a.m. a 10:00 p.m. todos los días, incluidos feriados y fines de semana.
-  - Para trámites patronales, aseguramiento o retiro de incapacidades, presentar cédula de identidad física vigente o DIMEX original.
+---INFORMACION_COMPLETA---
+• **Clínica Dr. Diego Miranda Vargas (Consulta Externa y EBAIS):** Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
+• **Servicio de Urgencias Médicas:** Lunes a Domingo: 7:00 a.m. – 10:00 p.m. (200 m norte y 75 m este del costado este de la Parroquia Nuestra Señora del Pilar).
+• **Teléfonos Clínica:** 2279-7128 / 2279-7129
+• **Central telefónica nacional CCSS:** 905-MISALUD (905-647-2583)
+• **Correo oficial:** sucursal_launion@ccss.sa.cr
+• **Citas médicas y recetas:** App móvil oficial EDUS y portal web aissfa.ccss.sa.cr
+• **Feriados y notas:** Las oficinas administrativas cierran feriados de ley. Urgencias atiende todos los días. Para trámites presenciales presentar cédula física vigente o DIMEX original.
             """.trimIndent()
         }
 
@@ -1072,23 +1151,24 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Banco Nacional de Costa Rica (BNCR) - Agencia Tres Ríos**
 
-• **✅ Horario completo:**
-  - Lunes a Viernes: 8:30 a.m. – 3:45 p.m. (Jornada continua).
-  - Sábados y Domingos: Cerrado.
-  - Cajeros automáticos (ATM) y App BN Móvil: Disponibles las 24 horas, todos los días.
+🕒 1. HORARIO
+Horario: Lunes a viernes 8:30 a.m. – 3:45 p.m.
+Cerrado: fines de semana y días feriados
 
-• **✅ Dirección exacta:**
-  - Tres Ríos centro, cantón de La Unión, Cartago. Frente al costado este del Parque Central de Tres Ríos.
+📍 2. UBICACIÓN:
+Provincia: Cartago
+Cantón: La Unión
+Distrito: Tres Ríos
+Dirección exacta: Frente al costado este del Parque Central de Tres Ríos
 
-• **✅ Teléfono / contacto:**
-  - Central telefónica nacional: **(+506) 2212-2000**
-  - WhatsApp oficial verificado: **(+506) 2212-2000**
-  - Sitio web y banca en línea: bncr.fi.cr
+📞 3. TELÉFONO
+Teléfono: 2212-2000
 
-• **✅ Días feriados o notas importantes:**
-  - La agencia permanece cerrada durante los feriados oficiales nacionales.
-  - Plataforma de autoservicio y cajeros automáticos operan normalmente en feriados.
-  - Atención preferencial para adultos mayores y mujeres embarazadas durante toda la jornada.
+---INFORMACION_COMPLETA---
+• **Cajeros automáticos (ATM) y App BN Móvil:** Disponibles las 24 horas todos los días.
+• **WhatsApp oficial verificado:** (+506) 2212-2000
+• **Sitio web:** bncr.fi.cr
+• **Notas:** Cerrado en feriados de ley. Atención preferencial para adultos mayores y mujeres embarazadas durante toda la jornada.
             """.trimIndent()
         }
 
@@ -1097,22 +1177,24 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Banco de Costa Rica (BCR) - Sucursal Tres Ríos**
 
-• **✅ Horario completo:**
-  - Lunes a Viernes: 9:00 a.m. – 4:00 p.m. (Jornada continua).
-  - Sábados y Domingos: Cerrado.
-  - Cajeros automáticos: Disponibles 24/7.
+🕒 1. HORARIO
+Horario: Lunes a viernes 9:00 a.m. – 4:00 p.m.
+Cerrado: fines de semana y días feriados
 
-• **✅ Dirección exacta:**
-  - Tres Ríos centro, cantón de La Unión, Cartago. 75 metros norte del Parque Central de Tres Ríos.
+📍 2. UBICACIÓN:
+Provincia: Cartago
+Cantón: La Unión
+Distrito: Tres Ríos
+Dirección exacta: 75 m norte del Parque Central de Tres Ríos
 
-• **✅ Teléfono / contacto:**
-  - Central telefónica BCR: **(+506) 2211-1111**
-  - WhatsApp de soporte: **(+506) 2211-1111**
-  - Citas Punto País (Licencias de conducir y pasaportes): **800-BCRCITA (800-227-2482)** o bancobcr.com
+📞 3. TELÉFONO
+Teléfono: 2211-1111
 
-• **✅ Días feriados o notas importantes:**
-  - Cerrado en feriados oficiales establecidos por el Código de Trabajo.
-  - Los trámites de licencias y pasaportes requieren cita previa obligatoria mediante el portal web o la línea 800-BCRCITA.
+---INFORMACION_COMPLETA---
+• **Cajeros automáticos:** Disponibles las 24 horas.
+• **WhatsApp oficial:** (+506) 2211-1111
+• **Citas Punto País (Licencias y pasaportes):** 800-BCRCITA (800-227-2482) o bancobcr.com
+• **Notas:** Cerrado en feriados oficiales. Trámites de licencias y pasaportes requieren cita previa obligatoria.
             """.trimIndent()
         }
 
@@ -1121,23 +1203,24 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Correos de Costa Rica - Sucursal Tres Ríos (La Unión)**
 
-• **✅ Horario completo:**
-  - Lunes a Viernes: 8:00 a.m. – 5:00 p.m. (Jornada continua).
-  - Sábados: 8:00 a.m. – 12:00 m.d.
-  - Domingos: Cerrado.
+🕒 1. HORARIO
+Horario: Lunes a viernes 8:00 a.m. – 5:00 p.m. | Sábados 8:00 a.m. – 12:00 m.d.
+Cerrado: domingos y días feriados
 
-• **✅ Dirección exacta:**
-  - Tres Ríos centro, cantón de La Unión, Cartago. Del costado sur del Parque Central de Tres Ríos, 50 metros al oeste, contiguo al Centro Parroquial.
+📍 2. UBICACIÓN:
+Provincia: Cartago
+Cantón: La Unión
+Distrito: Tres Ríos
+Dirección exacta: Costado sur del Parque Central de Tres Ríos, 50 m al oeste, contiguo al Centro Parroquial
 
-• **✅ Teléfono / contacto:**
-  - Teléfono directo sucursal: **(+506) 2279-5012**
-  - Central telefónica nacional: **800-900-2000 / (+506) 2257-8888**
-  - WhatsApp oficial: **(+506) 8444-2428**
-  - Portal de rastreo y trámites: correos.go.cr
+📞 3. TELÉFONO
+Teléfono: 2279-5012 / 2257-8888
 
-• **✅ Días feriados o notas importantes:**
-  - Sucursal cerrada en feriados de ley.
-  - Servicios prestados: Envíos EMS nacionales e internacionales, encomiendas Pymexpress, apartado postal y firma digital.
+---INFORMACION_COMPLETA---
+• **Central telefónica nacional:** 800-900-2000 / 2257-8888
+• **WhatsApp oficial:** (+506) 8444-2428
+• **Portal de rastreo:** correos.go.cr
+• **Servicios:** Envíos EMS, encomiendas Pymexpress, apartado postal y firma digital. Cerrado en feriados de ley.
             """.trimIndent()
         }
 
@@ -1146,23 +1229,24 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Instituto Costarricense de Acueductos y Alcantarillados (AyA) - Oficina Tres Ríos**
 
-• **✅ Horario completo:**
-  - Plataforma de servicio al cliente: Lunes a Viernes: 7:30 a.m. – 4:00 p.m. (Jornada continua).
-  - Sábados y Domingos: Cerrado en plataforma presencial.
-  - Reporte de averías y fugas: Atención telefónica 24 horas los 365 días del año.
+🕒 1. HORARIO
+Horario: Lunes a viernes 7:30 a.m. – 4:00 p.m.
+Cerrado: fines de semana y días feriados
 
-• **✅ Dirección exacta:**
-  - Tres Ríos centro, cantón de La Unión, Cartago. 125 metros al oeste del Parque Central de Tres Ríos.
+📍 2. UBICACIÓN:
+Provincia: Cartago
+Cantón: La Unión
+Distrito: Tres Ríos
+Dirección exacta: 125 m al oeste del Parque Central de Tres Ríos
 
-• **✅ Teléfono / contacto:**
-  - Línea gratuita nacional de averías 24/7: **800-REPORTE (800-737-6783)**
-  - Teléfono oficina local: **(+506) 2279-0520**
-  - WhatsApp oficial AyA: **(+506) 8376-7830**
-  - Trámites en línea: aya.go.cr
+📞 3. TELÉFONO
+Teléfono: 2279-0520 / 800-737-6783
 
-• **✅ Días feriados o notas importantes:**
-  - Cajas y atención de trámites cierran en feriados nacionales.
-  - Las cuadrillas técnicas de emergencias y averías trabajan de manera ininterrumpida las 24 horas del día.
+---INFORMACION_COMPLETA---
+• **Reporte de averías e interrupciones 24/7:** 800-REPORTE (800-737-6783)
+• **WhatsApp oficial:** (+506) 8376-7830
+• **Sitio web:** aya.go.cr
+• **Notas:** Plataforma presencial cierra en feriados. Cuadrillas técnicas atienden emergencias de agua las 24 horas del día.
             """.trimIndent()
         }
 
@@ -1171,21 +1255,23 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Municipalidad de La Unión (Tres Ríos)**
 
-• **✅ Horario completo:**
-  - Lunes a Viernes: 7:30 a.m. – 4:00 p.m. (Cajas, Gestión Tributaria y Plataforma de Servicios).
-  - Sábados y Domingos: Cerrado.
+🕒 1. HORARIO
+Horario: Lunes a viernes 7:30 a.m. – 4:00 p.m.
+Cerrado: fines de semana y días feriados
 
-• **✅ Dirección exacta:**
-  - Tres Ríos centro, cantón de La Unión, Cartago. Costado norte del Parque Central de Tres Ríos.
+📍 2. UBICACIÓN:
+Provincia: Cartago
+Cantón: La Unión
+Distrito: Tres Ríos
+Dirección exacta: Costado norte del Parque Central de Tres Ríos
 
-• **✅ Teléfono / contacto:**
-  - Central telefónica: **(+506) 2279-5034 / (+506) 2279-7000**
-  - Correo de información: **informacion@munilaunion.go.cr**
-  - Portal oficial de trámites y pagos: munilaunion.go.cr
+📞 3. TELÉFONO
+Teléfono: 2279-5034 / 2279-7000
 
-• **✅ Días feriados o notas importantes:**
-  - La municipalidad no labora en feriados oficiales ni durante el asueto del día del cantón.
-  - El pago de impuestos municipales se puede realizar en línea 24/7 mediante la plataforma web.
+---INFORMACION_COMPLETA---
+• **Correo oficial:** informacion@munilaunion.go.cr
+• **Portal de trámites y pagos:** munilaunion.go.cr
+• **Notas:** Cerrado en feriados oficiales y asueto cantonal. Pagos municipales disponibles 24/7 en la plataforma en línea.
             """.trimIndent()
         }
 
@@ -1193,25 +1279,25 @@ Caja Costarricense de Seguro Social
         if (q.contains("cartago") || q.contains("max peralta")) {
             return """
 🏛️ **Hospital Dr. Maximiliano Peralta Jiménez (Cartago Centro)**
-Caja Costarricense de Seguro Social
 
-• **✅ Horario completo:**
-  - Servicio de Emergencias Médicas y Quirúrgicas: **Abierto 24 horas continuas, los 365 días del año.**
-  - Consulta externa y citas con especialistas: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
-  - Farmacia de Consulta Externa: Lunes a Viernes: 7:00 a.m. – 4:00 p.m. (Farmacia de urgencias opera 24 horas).
-  - Sucursal Administrativa CCSS Cartago: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
+🕒 1. HORARIO
+Horario: Urgencias 24 horas continuas | Consulta externa: Lunes a jueves 7:00 a.m. – 4:00 p.m. y viernes 7:00 a.m. – 3:00 p.m.
+Cerrado: Consulta externa cerrada fines de semana y feriados (Emergencias nunca cierra)
 
-• **✅ Dirección exacta:**
-  - Cartago Centro, 200 metros al sur del Parque Central de Cartago (Avenida 0, Calle 1).
+📍 2. UBICACIÓN:
+Provincia: Cartago
+Cantón: Cartago
+Distrito: Oriental
+Dirección exacta: 200 m al sur del Parque Central de Cartago (Avenida 0, Calle 1)
 
-• **✅ Teléfono / contacto:**
-  - Central telefónica Hospital: **(+506) 2550-1999 / (+506) 2550-6400**
-  - Central telefónica nacional CCSS: **905-MISALUD (905-647-2583)**
-  - App móvil: **EDUS** (Expediente Digital Único en Salud).
+📞 3. TELÉFONO
+Teléfono: 2550-1999 / 2550-6400
 
-• **✅ Días feriados o notas importantes:**
-  - El área de emergencias nunca cierra (atención ininterrumpida 24/7 en feriados).
-  - La consulta programada y trámites de oficina se reprograman si coinciden con feriados de ley.
+---INFORMACION_COMPLETA---
+• **Farmacia de Consulta Externa:** Lunes a viernes 7:00 a.m. – 4:00 p.m. (Farmacia de urgencias opera 24 horas).
+• **Central telefónica nacional CCSS:** 905-MISALUD (905-647-2583)
+• **App móvil:** EDUS
+• **Notas:** Emergencias médicas y quirúrgicas abierto de manera ininterrumpida los 365 días del año.
             """.trimIndent()
         }
 
@@ -1219,67 +1305,70 @@ Caja Costarricense de Seguro Social
         if (q.contains("calderon") || q.contains("calderón")) {
             return """
 🏛️ **Hospital Dr. Rafael Ángel Calderón Guardia (San José)**
-Caja Costarricense de Seguro Social
 
-• **✅ Horario completo:**
-  - Urgencias y Emergencias: **Abierto 24 horas continuas, todos los días del año.**
-  - Consulta Externa y Farmacia General: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
+🕒 1. HORARIO
+Horario: Emergencias 24 horas continuas | Consulta externa: Lunes a jueves 7:00 a.m. – 4:00 p.m. y viernes 7:00 a.m. – 3:00 p.m.
+Cerrado: Consulta externa cerrada fines de semana y feriados (Emergencias nunca cierra)
 
-• **✅ Dirección exacta:**
-  - San José, Barrio Aranjuez, entre Avenidas 7 y 9, Calle 17.
+📍 2. UBICACIÓN:
+Provincia: San José
+Cantón: San José
+Distrito: El Carmen
+Dirección exacta: Barrio Aranjuez, entre Avenidas 7 y 9, Calle 17
 
-• **✅ Teléfono / contacto:**
-  - Central telefónica: **(+506) 2212-1000**
-  - Central de citas nacional: **905-MISALUD (905-647-2583)**
-  - Aplicación móvil: EDUS.
+📞 3. TELÉFONO
+Teléfono: 2212-1000
 
-• **✅ Días feriados o notas importantes:**
-  - El servicio de urgencias permanece abierto 24/7 todos los feriados.
-  - Para visita a pacientes hospitalizados se requiere presentar documento de identidad en los horarios de visita establecidos por el centro.
+---INFORMACION_COMPLETA---
+• **Central de citas CCSS:** 905-MISALUD (905-647-2583)
+• **App móvil:** EDUS
+• **Notas:** Urgencias abierto 24/7 todos los días del año. Visita a pacientes requiere cédula o documento de identidad en los horarios establecidos.
             """.trimIndent()
         }
 
         if (q.contains("san juan de dios")) {
             return """
 🏛️ **Hospital San Juan de Dios (San José)**
-Caja Costarricense de Seguro Social
 
-• **✅ Horario completo:**
-  - Emergencias Médicas: **Abierto 24 horas continuas.**
-  - Consulta Externa y Farmacia: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
+🕒 1. HORARIO
+Horario: Emergencias 24 horas continuas | Consulta externa: Lunes a jueves 7:00 a.m. – 4:00 p.m. y viernes 7:00 a.m. – 3:00 p.m.
+Cerrado: Consulta externa cerrada fines de semana y feriados (Emergencias nunca cierra)
 
-• **✅ Dirección exacta:**
-  - San José centro, Paseo Colón y Calle 14, frente al Parque La Merced.
+📍 2. UBICACIÓN:
+Provincia: San José
+Cantón: San José
+Distrito: Merced
+Dirección exacta: Paseo Colón y Calle 14, frente al Parque La Merced
 
-• **✅ Teléfono / contacto:**
-  - Central telefónica: **(+506) 2547-8000**
-  - Central nacional de salud: **905-MISALUD (905-647-2583)**
+📞 3. TELÉFONO
+Teléfono: 2547-8000
 
-• **✅ Días feriados o notas importantes:**
-  - Emergencias 24/7 en feriados.
-  - Consulta externa y trámites administrativos se reanudan el día hábil posterior al feriado.
+---INFORMACION_COMPLETA---
+• **Central nacional de salud:** 905-MISALUD (905-647-2583)
+• **Notas:** Emergencias 24/7 en feriados. Consulta programada reanuda el siguiente día hábil.
             """.trimIndent()
         }
 
         if (q.contains("mexico") || q.contains("méxico")) {
             return """
 🏛️ **Hospital México (San José)**
-Caja Costarricense de Seguro Social
 
-• **✅ Horario completo:**
-  - Urgencias y Centro de Trauma: **Abierto 24 horas continuas.**
-  - Consulta Externa: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
+🕒 1. HORARIO
+Horario: Urgencias y Trauma 24 horas continuas | Consulta externa: Lunes a jueves 7:00 a.m. – 4:00 p.m. y viernes 7:00 a.m. – 3:00 p.m.
+Cerrado: Consulta externa cerrada fines de semana y feriados (Urgencias nunca cierra)
 
-• **✅ Dirección exacta:**
-  - San José, La Uruca, sobre la Autopista General Cañas, contiguo al Centro de Recreación del INS.
+📍 2. UBICACIÓN:
+Provincia: San José
+Cantón: San José
+Distrito: La Uruca
+Dirección exacta: Sobre Autopista General Cañas, contiguo al Centro de Recreación del INS
 
-• **✅ Teléfono / contacto:**
-  - Central telefónica: **(+506) 2242-6700**
-  - Portal de citas: App oficial EDUS.
+📞 3. TELÉFONO
+Teléfono: 2242-6700
 
-• **✅ Días feriados o notas importantes:**
-  - Emergencias 24 horas en feriados y fines de semana.
-  - Servicios de apoyo diagnóstico de urgencia operan de manera continua.
+---INFORMACION_COMPLETA---
+• **Portal de citas:** App oficial EDUS
+• **Notas:** Urgencias y centro de trauma atienden 24 horas los 365 días del año.
             """.trimIndent()
         }
 
@@ -1288,22 +1377,23 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Caja Costarricense de Seguro Social (CCSS) - Red Nacional**
 
-• **✅ Horario completo:**
-  - Sucursales Administrativas y Financieras: Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m. (Jornada continua). Sábados y Domingos cerrado.
-  - EBAIS y Clínicas Periféricas (Consulta Externa): Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
-  - Servicios de Emergencia (Hospitales y CAIS): Abiertos 24 horas continuas todos los días.
+🕒 1. HORARIO
+Horario: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m.
+Cerrado: fines de semana y días feriados (Hospitales y emergencias atienden 24 horas)
 
-• **✅ Dirección exacta:**
-  - Sede Central: San José, Avenida Segunda, Calles 5 y 7. Sucursales y EBAIS disponibles en todos los 84 cantones del país.
+📍 2. UBICACIÓN:
+Provincia: San José (Sede Central)
+Cantón: San José
+Distrito: Catedral
+Dirección exacta: Avenida Segunda, Calles 5 y 7 (y sucursales/EBAIS en los 84 cantones del país)
 
-• **✅ Teléfono / contacto:**
-  - Central nacional de atención y citas: **905-MISALUD (905-647-2583)**
-  - Central Oficinas Centrales: **(+506) 2539-0000**
-  - Citas médicas y recetas oficiales: App móvil oficial **EDUS** y portal web aissfa.ccss.sa.cr
+📞 3. TELÉFONO
+Teléfono: 905-647-2583 / 2539-0000
 
-• **✅ Días feriados o notas importantes:**
-  - En días feriados de ley se suspende la consulta programada y la atención en sucursales administrativas.
-  - Los servicios de emergencias y hospitalización operan de forma ininterrumpida las 24 horas.
+---INFORMACION_COMPLETA---
+• **Central nacional de citas:** 905-MISALUD (905-647-2583)
+• **Citas y recetas:** App móvil oficial EDUS y portal web aissfa.ccss.sa.cr
+• **Notas:** En feriados de ley se suspende la atención administrativa programada. Emergencias y hospitalización operan de forma ininterrumpida las 24 horas.
             """.trimIndent()
         }
 
@@ -1312,23 +1402,22 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Sistema Bancario Nacional de Costa Rica**
 
-• **✅ Horario completo:**
-  - Sucursales en calle (Banco Nacional, BCR, Banco Popular): Lunes a Viernes: 8:30 a.m. – 3:45 p.m. Sábados cerrado.
-  - Sucursales en centros comerciales (Malls y Centros Comerciales): Lunes a Sábado: 10:00 a.m. – 6:00 p.m.
-  - Cajeros automáticos (ATM) y Banca Móvil: Disponibles las 24 horas, todos los días.
+🕒 1. HORARIO
+Horario: Lunes a viernes 8:30 a.m. – 3:45 p.m. (Sucursales calle) | Lunes a sábado 10:00 a.m. – 6:00 p.m. (Malls)
+Cerrado: fines de semana y días feriados en sucursales regulares
 
-• **✅ Dirección exacta:**
-  - Red de sucursales distribuidas en las 7 provincias y principales cantones del país.
+📍 2. UBICACIÓN:
+Provincia: Red Nacional
+Cantón: Red en todas las cabeceras de cantón
+Distrito: Centros comerciales y cívicos
+Dirección exacta: Sucursales de Banco Nacional, BCR, Banco Popular y BAC Credomatic en todo el país
 
-• **✅ Teléfono / contacto:**
-  - Banco Nacional: **(+506) 2212-2000**
-  - Banco de Costa Rica (BCR): **(+506) 2211-1111**
-  - Banco Popular: **(+506) 2202-2020**
-  - BAC Credomatic: **(+506) 2295-9898**
+📞 3. TELÉFONO
+Teléfono: 2212-2000 (BNCR) / 2211-1111 (BCR) / 2202-2020 (Popular) / 2295-9898 (BAC)
 
-• **✅ Días feriados o notas importantes:**
-  - Todas las sucursales físicas cierran en feriados nacionales obligatorios.
-  - La banca móvil, transferencias SINPE y cajeros automáticos operan con normalidad en días festivos.
+---INFORMACION_COMPLETA---
+• **Cajeros automáticos y Banca Móvil:** Disponibles las 24 horas todos los días.
+• **Notas:** Todas las sucursales físicas cierran en feriados nacionales obligatorios. Banca digital y transferencias SINPE operan con normalidad.
             """.trimIndent()
         }
 
@@ -1337,47 +1426,47 @@ Caja Costarricense de Seguro Social
             return """
 🏛️ **Correos de Costa Rica**
 
-• **✅ Horario completo:**
-  - Lunes a Viernes: 8:00 a.m. – 5:00 p.m. (Jornada continua).
-  - Sábados: 8:00 a.m. – 12:00 m.d. (Sucursales principales).
-  - Domingos: Cerrado.
+🕒 1. HORARIO
+Horario: Lunes a viernes 8:00 a.m. – 5:00 p.m. | Sábados 8:00 a.m. – 12:00 m.d.
+Cerrado: domingos y días feriados
 
-• **✅ Dirección exacta:**
-  - Sucursales en los 84 cantones del país. Edificio Central de Correos: San José, Calle 2, Avenidas 1 y 3.
+📍 2. UBICACIÓN:
+Provincia: San José
+Cantón: San José
+Distrito: Carmen
+Dirección exacta: Edificio Correo Central: Calle 2, Avenidas 1 y 3 (y sucursales en los 84 cantones)
 
-• **✅ Teléfono / contacto:**
-  - Central de atención al cliente: **800-900-2000 / (+506) 2257-8888**
-  - WhatsApp oficial: **(+506) 8444-2428**
-  - Portal de rastreo y servicios: correos.go.cr
+📞 3. TELÉFONO
+Teléfono: 800-900-2000 / 2257-8888
 
-• **✅ Días feriados o notas importantes:**
-  - Cerrado en feriados oficiales de ley.
-  - El servicio de apartado postal y casillero virtual Box Correos se administra desde la plataforma web.
+---INFORMACION_COMPLETA---
+• **WhatsApp oficial:** (+506) 8444-2428
+• **Sitio web:** correos.go.cr
+• **Notas:** Cerrado en feriados oficiales de ley. Apartados postales y Box Correos administrables desde la web.
             """.trimIndent()
         }
 
         // Fallback estructurado oficial para Costa Rica
         return """
-🏛️ **Información Oficial de Servicios Públicos - Costa Rica**
+🏛️ **Información de Servicios Públicos - Costa Rica**
 Consulta: "$query"
 
-• **✅ Horario completo:**
-  - Jornada institucional habitual (CCSS, AyA, ICE, Ministerios): Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m. (Jornada continua).
-  - Servicios de emergencias médicas y hospitales: Abierto las 24 horas del día, los 365 días del año.
-  - Sucursales bancarias: Lunes a Viernes: 8:30 a.m. – 3:45 p.m. (Calle) / 10:00 a.m. – 6:00 p.m. (Centros comerciales).
+🕒 1. HORARIO
+Horario: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m.
+Cerrado: fines de semana y días feriados (Hospitales y emergencias operan 24 horas)
 
-• **✅ Dirección exacta:**
-  - Sede regional o sucursal correspondiente al cantón de la consulta en Costa Rica.
+📍 2. UBICACIÓN:
+Provincia: Red Nacional
+Cantón: Consultar según cantón
+Distrito: Distrito central
+Dirección exacta: Sucursal u oficina local correspondiente a la entidad en Costa Rica
 
-• **✅ Teléfono / contacto:**
-  - Central CCSS: **905-MISALUD (905-647-2583)**
-  - Banco Nacional: **(+506) 2212-2000** | BCR: **(+506) 2211-1111**
-  - Averías AyA: **800-REPORTE (800-737-6783)**
-  - Emergencias nacionales: **9-1-1**
+📞 3. TELÉFONO
+Teléfono: 905-647-2583 (CCSS) / 800-737-6783 (AyA) / 9-1-1 (Emergencias)
 
-• **✅ Días feriados o notas importantes:**
-  - En feriados oficiales de ley, las oficinas administrativas permanecen cerradas.
-  - Los servicios críticos y de emergencia atienden las 24 horas del día.
+---INFORMACION_COMPLETA---
+• **Bancos:** 2212-2000 (BNCR) / 2211-1111 (BCR)
+• **Notas:** En feriados oficiales las oficinas administrativas permanecen cerradas. Servicios de emergencias atienden 24/7.
         """.trimIndent()
     }
 
@@ -1386,18 +1475,21 @@ Consulta: "$query"
 🏛️ **Información de Servicios Públicos - $country**
 Consulta: "$query"
 
-• **✅ Horario completo:**
-  - Horario general de entidades públicas: Lunes a Viernes: 8:00 a.m. – 4:30 p.m.
-  - Emergencias y hospitales: Atención continua las 24 horas.
+🕒 1. HORARIO
+Horario: Lunes a viernes 8:00 a.m. – 4:30 p.m.
+Cerrado: fines de semana y días feriados
 
-• **✅ Dirección exacta:**
-  - Oficinas y sedes centrales del área metropolitana o sucursal regional correspondiente en $country.
+📍 2. UBICACIÓN:
+Provincia: Jurisdicción correspondiente
+Cantón: Sede metropolitana o regional
+Distrito: Zona central
+Dirección exacta: Oficina o sede oficial de la institución en $country
 
-• **✅ Teléfono / contacto:**
-  - Consulta en el portal gubernamental oficial de $country o líneas de atención ciudadana local.
+📞 3. TELÉFONO
+Teléfono: Consultar línea directa en el portal oficial de $country
 
-• **✅ Días feriados o notas importantes:**
-  - Entidades públicas no atienden en feriados locales oficiales, salvo servicios esenciales de salud y seguridad.
+---INFORMACION_COMPLETA---
+• **Notas:** Entidades públicas no atienden en feriados locales oficiales, salvo servicios esenciales de urgencia y seguridad.
     """.trimIndent()
 }
 
@@ -1421,17 +1513,30 @@ suspend fun executeAiPublicServiceQuery(
                 Eres el informador oficial de Horarios y Servicios Públicos para $country ($tzLabel).
                 CONSULTA DEL USUARIO: $query
 
-                ESTRUCTURA OBLIGATORIA DE RESPUESTA (Debes proporcionar los 4 puntos sin cortar ninguno):
+                FORMATO OBLIGATORIO DE RESPUESTA:
+                Muestra ÚNICAMENTE los datos esenciales, limpios, directos y ordenados, siguiendo esta estructura exacta:
+
                 🏛️ [Nombre oficial de la institución o sucursal]
 
-                • **✅ Horario completo:** Horario exacto (ejemplo: "Lunes a Viernes: 7:00 a.m. – 4:00 p.m."). Especifica si aplica jornada continua, horarios de fin de semana o si opera 24 horas.
-                • **✅ Dirección exacta:** Provincia, cantón, distrito y señas claras de ubicación de la sucursal.
-                • **✅ Teléfono / contacto:** Teléfonos directos de la sucursal, líneas centrales y canales digitales oficiales (WhatsApp/web).
-                • **✅ Días feriados o notas importantes:** Cierres en días feriados, requisitos indispensables (cédula, cita previa, app EDUS) o notas relevantes. Nunca omitas este campo.
+                🕒 1. HORARIO
+                Horario: [Días y horas exactas, ej: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m.]
+                Cerrado: [Días de cierre, ej: fines de semana y días feriados]
+
+                📍 2. UBICACIÓN:
+                Provincia: [Nombre de la provincia o estado]
+                Cantón: [Nombre del cantón o municipio]
+                Distrito: [Nombre del distrito o localidad]
+                Dirección exacta: [Señas claras y precisas de ubicación]
+
+                📞 3. TELÉFONO
+                Teléfono: [Solo números directos de la sucursal o central]
+
+                ---INFORMACION_COMPLETA---
+                [Coloca aquí abajo CUALQUIER información complementaria: enlaces web, app EDUS, requisitos de cédula, notas largas, citas o recomendaciones]
 
                 REGLAS ESTRICTAS:
-                - NO cortar la respuesta — muestra toda la información completa.
-                - NO dejar campos vacíos — si algún dato adicional no estuviera disponible, especifícalo claramente.
+                - En la parte principal (antes de ---INFORMACION_COMPLETA---) NO pongas sitios web, enlaces, apps, requisitos de cédula, ni notas largas. Solo Horario, Ubicación dividida y Teléfono.
+                - Todo lo demás debe ir obligatoriamente después de ---INFORMACION_COMPLETA---.
             """.trimIndent()
 
             val modelsToTry = listOf("gemini-2.5-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-3.1-flash-lite-preview")
