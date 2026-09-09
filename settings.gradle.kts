@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Gemini Cascade AI"
+rootProject.name = "ZACK AI"
 
 include(":app")
