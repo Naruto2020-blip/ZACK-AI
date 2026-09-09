@@ -102,7 +102,7 @@ object GeminiClient {
             customApiKeyCache = saved
             return saved
         }
-        val buildKey = BuildConfig.GEMINI_API_KEY.trim()
+        val buildKey = (try { BuildConfig.GEMINI_API_KEY } catch (_: Throwable) { "" } ?: "").trim()
         customApiKeyCache = buildKey
         return buildKey
     }
@@ -111,7 +111,7 @@ object GeminiClient {
         if (!customApiKeyCache.isNullOrBlank()) {
             return customApiKeyCache!!
         }
-        return BuildConfig.GEMINI_API_KEY.trim()
+        return (try { BuildConfig.GEMINI_API_KEY } catch (_: Throwable) { "" } ?: "").trim()
     }
 
     fun hasValidApiKey(context: android.content.Context? = null): Boolean {

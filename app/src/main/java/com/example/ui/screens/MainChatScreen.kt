@@ -189,26 +189,33 @@ fun MainChatScreen(
     }
 
     DisposableEffect(Unit) {
-        val textToSpeech = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                configureTtsVoice(tts, voiceGender)
-            }
-        }
-        textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {}
-            override fun onDone(utteranceId: String?) {
-                if (utteranceId?.startsWith("final_") == true || utteranceId == speakingMessageId) {
-                    coroutineScope.launch { speakingMessageId = null }
+        var localTts: TextToSpeech? = null
+        try {
+            localTts = TextToSpeech(context.applicationContext) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    configureTtsVoice(localTts, voiceGender)
                 }
             }
-            override fun onError(utteranceId: String?) {
-                coroutineScope.launch { speakingMessageId = null }
-            }
-        })
-        tts = textToSpeech
+            localTts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) {
+                    if (utteranceId?.startsWith("final_") == true || utteranceId == speakingMessageId) {
+                        coroutineScope.launch { speakingMessageId = null }
+                    }
+                }
+                override fun onError(utteranceId: String?) {
+                    coroutineScope.launch { speakingMessageId = null }
+                }
+            })
+            tts = localTts
+        } catch (e: Exception) {
+            tts = null
+        }
         onDispose {
-            tts?.stop()
-            tts?.shutdown()
+            try {
+                tts?.stop()
+                tts?.shutdown()
+            } catch (e: Exception) {}
         }
     }
 
