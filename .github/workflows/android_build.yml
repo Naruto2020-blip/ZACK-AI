@@ -44,9 +44,6 @@ jobs:
       # - name: Run Unit Tests
       #   run: gradle :app:testDebugUnitTest --no-daemon
 
-      - name: Make Gradle Wrapper Executable
-        run: chmod +x ./gradlew || true
-
       - name: Build Android APK
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -55,23 +52,17 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          # Detect gradle executable (prefer gradlew)
-          GRADLE_CMD="./gradlew"
-          if [ ! -f "./gradlew" ]; then
-            GRADLE_CMD="gradle"
-          fi
-
           # Si se configuró el keystore en los Secrets de GitHub, decodificarlo y compilar Release firmado
           if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
-            echo "==> Configurando firma con Keystore de producción..."
+            echo "==> Configurando firma con Keystore de producción (Release)..."
             echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
             export KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
-            $GRADLE_CMD :app:assembleRelease --no-daemon --no-configuration-cache --stacktrace
+            gradle :app:assembleRelease --no-daemon --no-configuration-cache --stacktrace
             mkdir -p release-output
             cp app/build/outputs/apk/release/*.apk release-output/ || true
           else
-            echo "==> No se detectaron secretos de firma release o es un PR. Compilando APK con firma garantizada (Debug)..."
-            $GRADLE_CMD :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace
+            echo "==> Generando APK firmado automáticamente (Debug APK firmado listo para instalar)..."
+            gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace
           fi
 
       - name: Upload APK Artifact
