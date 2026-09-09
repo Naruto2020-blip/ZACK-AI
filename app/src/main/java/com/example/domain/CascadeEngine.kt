@@ -12,6 +12,7 @@ import com.example.data.remote.GeminiClient
 import com.example.data.remote.GenerateContentRequestDto
 import com.example.data.remote.GenerationConfigDto
 import com.example.data.remote.PartDto
+import com.example.data.remote.ToolDto
 import com.example.data.repository.ChatRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -187,10 +188,15 @@ class CascadeEngine(
             GenerationConfigDto(temperature = temperature)
         } else null
 
+        val tools = if (attachmentBase64.isNullOrBlank()) {
+            listOf(ToolDto(googleSearch = emptyMap()))
+        } else null
+
         val request = GenerateContentRequestDto(
             contents = contents,
             generationConfig = genConfig,
-            systemInstruction = systemContent
+            systemInstruction = systemContent,
+            tools = tools
         )
 
         // Build list of models to try
@@ -268,8 +274,8 @@ class CascadeEngine(
                         val errorBody = finalResponse.errorBody()?.string() ?: ""
                         Log.w(tag, "Model $endpoint returned error $httpCode: $errorBody")
                         
-                        // If it's a 400, retry once with simplified request (only user prompt)
-                        if (httpCode == 400 && (request.systemInstruction != null || contents.size > 1)) {
+                        // If it's a 400, retry once with simplified request (only user prompt, without tools/system instruction)
+                        if (httpCode == 400 && (request.systemInstruction != null || contents.size > 1 || request.tools != null)) {
                             val simpleRequest = GenerateContentRequestDto(
                                 contents = listOf(
                                     ContentDto(
