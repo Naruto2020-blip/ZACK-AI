@@ -134,7 +134,6 @@ fun MainChatScreen(
     var showDocToolsDialog by remember { mutableStateOf(false) }
     var showRealtimeCameraSheet by remember { mutableStateOf(false) }
     var showWebBrowserSheet by remember { mutableStateOf(false) }
-    var showPublicServicesSheet by remember { mutableStateOf(false) }
 
     // TTS Setup & Speaking State
     var speakingMessageId by remember { mutableStateOf<String?>(null) }
@@ -417,10 +416,6 @@ fun MainChatScreen(
                 onOpenWebBrowser = {
                     coroutineScope.launch { drawerState.close() }
                     showWebBrowserSheet = true
-                },
-                onOpenPublicServices = {
-                    coroutineScope.launch { drawerState.close() }
-                    showPublicServicesSheet = true
                 }
             )
         }
@@ -795,17 +790,6 @@ fun MainChatScreen(
             onDismiss = { showWebBrowserSheet = false },
             onSendToChat = { prompt ->
                 showWebBrowserSheet = false
-                viewModel.sendMessage(prompt)
-            }
-        )
-    }
-
-    // 🏛️ Horarios y Servicios Públicos (Costa Rica & Internacional)
-    if (showPublicServicesSheet) {
-        com.example.ui.components.PublicServicesSheet(
-            onDismiss = { showPublicServicesSheet = false },
-            onSendToChat = { prompt ->
-                showPublicServicesSheet = false
                 viewModel.sendMessage(prompt)
             }
         )

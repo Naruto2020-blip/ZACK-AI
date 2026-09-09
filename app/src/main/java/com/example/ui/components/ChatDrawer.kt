@@ -93,7 +93,6 @@ fun ChatDrawerContent(
     onOpenDocTools: () -> Unit = {},
     onOpenRealtimeCamera: () -> Unit = {},
     onOpenWebBrowser: () -> Unit = {},
-    onOpenPublicServices: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
@@ -641,50 +640,6 @@ fun ChatDrawerContent(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
-                        }
-                    }
-
-                    // 6. 🏛️ Horarios y Servicios Públicos
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onOpenPublicServices() }
-                            .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
-                            .testTag("drawer_public_services_button"),
-                        color = ObsidianCard,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🏛️", fontSize = 15.sp)
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = "Horarios y Servicios Públicos",
-                                    color = TextPrimaryDark,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(5.dp),
-                                color = ElectricCyan.copy(alpha = 0.12f),
-                                border = BorderStroke(0.5.dp, ElectricCyan.copy(alpha = 0.5f))
-                            ) {
-                                Text(
-                                    text = "INFO",
-                                    color = ElectricCyan,
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                )
-                            }
                         }
                     }
                 }
