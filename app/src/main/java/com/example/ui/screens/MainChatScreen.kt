@@ -524,6 +524,7 @@ fun MainChatScreen(
                 ) {
                     if (uiState.messages.isEmpty()) {
                         EmptyChatState(
+                            currentPersona = uiState.systemPersona,
                             onSuggestionSelected = { prompt ->
                                 inputText = prompt
                                 viewModel.sendMessage(prompt)
@@ -547,6 +548,9 @@ fun MainChatScreen(
                                     },
                                     onToggleFavorite = { id, isFav ->
                                         viewModel.toggleFavorite(id, isFav)
+                                    },
+                                    onSendMessage = { prompt ->
+                                        viewModel.sendMessage(prompt)
                                     }
                                 )
                             }
@@ -920,14 +924,46 @@ fun ChatTopBar(
 
 @Composable
 fun EmptyChatState(
+    currentPersona: String = "",
     onSuggestionSelected: (String) -> Unit
 ) {
-    val suggestions = listOf(
-        "🛒 Crear Lista de Compras organizada por categorías",
-        "⚡ Explica un concepto complejo en términos sencillos",
-        "💻 Escribe una función Kotlin limpia para ordenar colecciones",
-        "✍️ Redacta un correo profesional solicitando una reunión de estrategia"
-    )
+    val suggestions = remember(currentPersona) {
+        when {
+            currentPersona.contains("Profesor", ignoreCase = true) -> listOf(
+                "📝 Hazme un examen de Historia Universal, nivel secundaria",
+                "🧪 Hazme un examen de Biología Celular, nivel bachillerato",
+                "📐 Explica el teorema de Pitágoras paso a paso con ejemplos",
+                "📚 Guía de estudio y ejercicios para preparar mi examen de matemáticas"
+            )
+            currentPersona.contains("Trabajador", ignoreCase = true) ||
+                    currentPersona.contains("RRHH", ignoreCase = true) ||
+                    currentPersona.contains("Recursos", ignoreCase = true) -> listOf(
+                "📄 Ayúdame a armar mi Currículum Vitae profesional",
+                "✉️ Redactar una carta de renuncia formal con preaviso",
+                "💼 Redactar una carta de presentación para postularme a un empleo",
+                "🎯 Prepárame para una entrevista de trabajo con preguntas y respuestas"
+            )
+            currentPersona.contains("Técnico", ignoreCase = true) ||
+                    currentPersona.contains("Soporte", ignoreCase = true) -> listOf(
+                "🛠️ Mi celular se calienta rápido y se descarga, ¿cómo solucionarlo?",
+                "📶 Pasos para solucionar problemas de conexión WiFi en mi computadora",
+                "📱 ¿Cómo liberar espacio de almacenamiento sin borrar fotos importantes?",
+                "💻 Mi computadora está muy lenta, ¿qué configuraciones puedo ajustar?"
+            )
+            currentPersona.contains("Financiero", ignoreCase = true) -> listOf(
+                "💰 Ayúdame a organizar un presupuesto mensual para mi hogar",
+                "📉 Estrategia práctica para reducir gastos hormiga y ahorrar este mes",
+                "📊 ¿Cómo distribuir mis ingresos con la regla 50/30/20?",
+                "💳 Consejos para salir de deudas de tarjetas de crédito paso a paso"
+            )
+            else -> listOf(
+                "🛒 Crear Lista de Compras organizada por categorías",
+                "⚡ Explica un concepto complejo en términos sencillos",
+                "💻 Escribe una función Kotlin limpia para ordenar colecciones",
+                "✍️ Redacta un correo profesional solicitando una reunión de estrategia"
+            )
+        }
+    }
 
     Column(
         modifier = Modifier

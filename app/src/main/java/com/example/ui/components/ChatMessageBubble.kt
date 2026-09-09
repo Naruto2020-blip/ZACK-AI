@@ -92,7 +92,8 @@ fun ChatMessageBubble(
     onToggleSpeak: () -> Unit = { onSpeak(message.content) },
     modifier: Modifier = Modifier,
     sessionTitle: String? = null,
-    onToggleFavorite: (Long, Boolean) -> Unit = { _, _ -> }
+    onToggleFavorite: (Long, Boolean) -> Unit = { _, _ -> },
+    onSendMessage: (String) -> Unit = {}
 ) {
     val isUser = message.role == "user"
     val context = LocalContext.current
@@ -104,16 +105,25 @@ fun ChatMessageBubble(
     var isExporting by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // Interactive Exam & Job Form Detection
+    val interactiveExam = remember(message.content, message.isError) {
+        if (!message.isError && !isUser) parseInteractiveExam(message.content) else null
+    }
+    val interactiveJobForm = remember(message.content, message.isError) {
+        if (!message.isError && !isUser) parseInteractiveJobForm(message.content) else null
+    }
+    val isInteractive = interactiveExam != null || interactiveJobForm != null
+
     // Smart Signature State
     var showSignaturePad by remember { mutableStateOf(false) }
     var showSignaturePlacement by remember { mutableStateOf(false) }
     var currentSignatureBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val isSignableDocument = remember(message.content, message.isError) {
-        !message.isError && DocumentSignatureDetector.isSignableDocument(message.content)
+    val isSignableDocument = remember(message.content, message.isError, isInteractive) {
+        !message.isError && !isInteractive && DocumentSignatureDetector.isSignableDocument(message.content)
     }
 
-    val displayContent = remember(message.content, message.isError, isSignableDocument) {
-        if (!message.isError && (isSignableDocument || message.content.contains("Para redactar", ignoreCase = true) || message.content.contains("[ej:", ignoreCase = true))) {
+    val displayContent = remember(message.content, message.isError, isSignableDocument, isInteractive) {
+        if (!message.isError && !isInteractive && (isSignableDocument || message.content.contains("Para redactar", ignoreCase = true) || message.content.contains("[ej:", ignoreCase = true))) {
             DocumentCleaner.cleanLetterDocument(message.content, sessionTitle)
         } else {
             message.content
@@ -260,6 +270,16 @@ fun ChatMessageBubble(
                                     lineHeight = 20.sp
                                 )
                             }
+                        } else if (interactiveExam != null) {
+                            InteractiveExamCard(
+                                exam = interactiveExam,
+                                onSubmitAnswers = onSendMessage
+                            )
+                        } else if (interactiveJobForm != null) {
+                            InteractiveJobFormCard(
+                                jobForm = interactiveJobForm,
+                                onSubmitDocument = onSendMessage
+                            )
                         } else {
                             SelectionContainer {
                                 MarkdownContent(
