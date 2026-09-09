@@ -10,13 +10,14 @@ import com.example.data.remote.ContentDto
 import com.example.data.remote.GeminiApiService
 import com.example.data.remote.GeminiClient
 import com.example.data.remote.GenerateContentRequestDto
+import com.example.data.remote.GenerateContentResponseDto
 import com.example.data.remote.GenerationConfigDto
 import com.example.data.remote.PartDto
-import com.example.data.remote.ToolDto
 import com.example.data.repository.ChatRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import retrofit2.Response
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -188,15 +189,10 @@ class CascadeEngine(
             GenerationConfigDto(temperature = temperature)
         } else null
 
-        val tools = if (attachmentBase64.isNullOrBlank()) {
-            listOf(ToolDto(googleSearch = emptyMap()))
-        } else null
-
         val request = GenerateContentRequestDto(
             contents = contents,
             generationConfig = genConfig,
-            systemInstruction = systemContent,
-            tools = tools
+            systemInstruction = systemContent
         )
 
         // Build list of models to try
@@ -230,7 +226,7 @@ class CascadeEngine(
             for (endpoint in modelEndpoints) {
                 try {
                     Log.d(tag, "Attempting request with model endpoint: $endpoint")
-                    val response = withTimeoutOrNull(90_000L) {
+                    val initialResponse = withTimeoutOrNull(90_000L) {
                         apiService.generateContent(
                             model = endpoint,
                             apiKeyQuery = apiKey,
@@ -238,27 +234,33 @@ class CascadeEngine(
                         )
                     }
 
-                    if (response == null) {
+                    if (initialResponse == null) {
                         failureReason = "Tiempo de espera individual agotado (90s)"
                         continue
                     }
 
-                    httpCode = response.code()
-
-                    // Quick retry on 503 (temporary network spike/service unavailable)
-                    val finalResponse = if (httpCode == 503) {
-                        Log.w(tag, "Model $endpoint returned 503 (Saturación), retrying once...")
-                        kotlinx.coroutines.delay(500L)
-                        withTimeoutOrNull(30_000L) {
-                            apiService.generateContent(
-                                model = endpoint,
-                                apiKeyQuery = apiKey,
-                                request = request
-                            )
-                        } ?: response
-                    } else response
-
+                    var finalResponse: Response<GenerateContentResponseDto> = initialResponse
                     httpCode = finalResponse.code()
+
+                    // Quick retry on 503 (temporary high demand spike / service unavailable)
+                    if (httpCode == 503) {
+                        for (retryCount in 1..2) {
+                            Log.w(tag, "Model $endpoint returned 503 (Saturación temporal), reintentando ($retryCount/2)...")
+                            kotlinx.coroutines.delay(retryCount * 700L)
+                            val retryResp = withTimeoutOrNull(30_000L) {
+                                apiService.generateContent(
+                                    model = endpoint,
+                                    apiKeyQuery = apiKey,
+                                    request = request
+                                )
+                            }
+                            if (retryResp != null) {
+                                finalResponse = retryResp
+                                httpCode = retryResp.code()
+                                if (retryResp.isSuccessful) break
+                            }
+                        }
+                    }
 
                     if (finalResponse.isSuccessful) {
                         val body = finalResponse.body()
@@ -274,8 +276,8 @@ class CascadeEngine(
                         val errorBody = finalResponse.errorBody()?.string() ?: ""
                         Log.w(tag, "Model $endpoint returned error $httpCode: $errorBody")
                         
-                        // If it's a 400, retry once with simplified request (only user prompt, without tools/system instruction)
-                        if (httpCode == 400 && (request.systemInstruction != null || contents.size > 1 || request.tools != null)) {
+                        // If it's a 400, retry once with simplified request (only user prompt, without system instruction)
+                        if (httpCode == 400 && (request.systemInstruction != null || contents.size > 1)) {
                             val simpleRequest = GenerateContentRequestDto(
                                 contents = listOf(
                                     ContentDto(

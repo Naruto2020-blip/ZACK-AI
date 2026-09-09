@@ -7,13 +7,7 @@ import com.squareup.moshi.JsonClass
 data class GenerateContentRequestDto(
     @Json(name = "contents") val contents: List<ContentDto>,
     @Json(name = "generationConfig") val generationConfig: GenerationConfigDto? = null,
-    @Json(name = "systemInstruction") val systemInstruction: ContentDto? = null,
-    @Json(name = "tools") val tools: List<ToolDto>? = null
-)
-
-@JsonClass(generateAdapter = true)
-data class ToolDto(
-    @Json(name = "googleSearch") val googleSearch: Map<String, String>? = emptyMap()
+    @Json(name = "systemInstruction") val systemInstruction: ContentDto? = null
 )
 
 @JsonClass(generateAdapter = true)
