@@ -97,6 +97,30 @@ val AI_MODES_LIST = listOf(
         description = "Explica temas difíciles paso a paso, ayuda con tareas, resúmenes, ejercicios, prepara exámenes.",
         emoji = "📚",
         accentColor = Color(0xFF3B82F6)
+    ),
+    AiModeItem(
+        key = "🛠️ Técnico / Soporte",
+        title = "🛠️ TÉCNICO / SOPORTE",
+        subtitle = "Tecnología, Celulares, Apps y Computadoras",
+        description = "Soluciona errores, explica pasos simples, ayuda con configuraciones, instalación, problemas de conexión y uso de dispositivos. (Se enfoca en lo práctico y técnico)",
+        emoji = "🛠️",
+        accentColor = Color(0xFF06B6D4)
+    ),
+    AiModeItem(
+        key = "💰 Asesor Financiero",
+        title = "💰 ASESOR FINANCIERO / ECONÓMICO",
+        subtitle = "Dinero, Presupuestos, Ahorro y Gastos",
+        description = "Organiza presupuestos familiares, da ideas de ahorro, ayuda con control de gastos y consejos de economía diaria. Distinto a leyes — es sobre manejo de dinero.",
+        emoji = "💰",
+        accentColor = Color(0xFF10B981)
+    ),
+    AiModeItem(
+        key = "📄 Trabajador / RRHH",
+        title = "📄 TRABAJADOR / RECURSOS HUMANOS",
+        subtitle = "Empleo, Currículums, Cartas y Entrevistas",
+        description = "Redacta currículums, cartas de solicitud, renuncias, prepara para entrevistas y organiza documentos laborales. Se enfoca en lo práctico para conseguir trabajo.",
+        emoji = "📄",
+        accentColor = Color(0xFF8B5CF6)
     )
 )
 

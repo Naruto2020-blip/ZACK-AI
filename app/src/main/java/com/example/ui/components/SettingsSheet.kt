@@ -119,6 +119,24 @@ fun SettingsSheet(
             description = "Explica temas difíciles paso a paso, ayuda con tareas, resúmenes, ejercicios, prepara exámenes.",
             icon = Icons.Default.Code,
             accentColor = Color(0xFF3B82F6)
+        ),
+        PersonaOption(
+            title = "🛠️ Técnico / Soporte",
+            description = "Soluciona errores en celulares, apps y computadoras, configuraciones y pasos prácticos.",
+            icon = Icons.Default.Settings,
+            accentColor = Color(0xFF06B6D4)
+        ),
+        PersonaOption(
+            title = "💰 Asesor Financiero",
+            description = "Organiza presupuestos familiares, ahorro, control de gastos diarios y finanzas personales.",
+            icon = Icons.Default.SmartToy,
+            accentColor = Color(0xFF10B981)
+        ),
+        PersonaOption(
+            title = "📄 Trabajador / RRHH",
+            description = "Redacta currículums, cartas de solicitud, renuncias y preparación para entrevistas.",
+            icon = Icons.Default.Create,
+            accentColor = Color(0xFF8B5CF6)
         )
     )
 
@@ -608,7 +626,11 @@ fun SettingsSheet(
                             (persona.title.contains("Médico") && uiState.systemPersona.contains("Médico")) ||
                             (persona.title.contains("Psicólogo") && uiState.systemPersona.contains("Psicólogo")) ||
                             (persona.title.contains("Redactor") && uiState.systemPersona.contains("Redactor")) ||
-                            (persona.title.contains("Profesor") && uiState.systemPersona.contains("Profesor"))
+                            (persona.title.contains("Profesor") && uiState.systemPersona.contains("Profesor")) ||
+                            (persona.title.contains("Técnico") && uiState.systemPersona.contains("Técnico")) ||
+                            (persona.title.contains("Financiero") && uiState.systemPersona.contains("Financiero")) ||
+                            ((persona.title.contains("Trabajador") || persona.title.contains("RRHH") || persona.title.contains("Recursos")) &&
+                                    (uiState.systemPersona.contains("Trabajador") || uiState.systemPersona.contains("RRHH") || uiState.systemPersona.contains("Recursos")))
 
                     Surface(
                         modifier = Modifier
