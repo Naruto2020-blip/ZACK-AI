@@ -1112,15 +1112,15 @@ fun resolvePublicServiceDirectly(query: String, country: String): String {
     val isCostaRica = country.contains("Costa Rica", ignoreCase = true) || country.equals("CR", ignoreCase = true)
 
     if (isCostaRica) {
-        // 1. Caso específico: CCSS Tres Ríos / La Unión (Cartago)
-        val hasHealthWord = q.contains("ccss") || q.contains("caja") || q.contains("ebais") ||
-                q.contains("clinica") || q.contains("clínica") || q.contains("salud") ||
-                q.contains("hospital") || q.contains("sucursal") || q.contains("horario")
+        // 1. Caso específico: EBAIS y Áreas de Salud de La Unión / Cartago
+        val isEbaisOrSalud = q.contains("ebais") || q.contains("área de salud") || q.contains("area de salud") ||
+                q.contains("consulta") || q.contains("medico") || q.contains("médico") || q.contains("clínica") || q.contains("clinica")
         val hasTresRios = q.contains("tres ríos") || q.contains("tres rios") || q.contains("la unión") || q.contains("la union")
 
-        if (hasHealthWord && hasTresRios) {
+        // 1A. EBAIS Concepción (Sur, Norte, etc.) o Área de Salud San Juan - San Diego - Concepción
+        if (q.contains("concepci") || (q.contains("san juan") && q.contains("san diego"))) {
             return """
-🏛️ **CCSS - Sucursal La Unión / Tres Ríos (Cartago)**
+🏥 **EBAIS Concepción Sur — Área de Salud San Juan-San Diego-Concepción**
 
 🕒 1. HORARIO
 Horario: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m.
@@ -1129,20 +1129,73 @@ Cerrado: fines de semana y días feriados
 📍 2. UBICACIÓN:
 Provincia: Cartago
 Cantón: La Unión
+Distrito: Concepción
+Dirección exacta: Concepción de La Unión, 650 metros al este de la Iglesia Católica
+
+📞 3. TELÉFONO
+Teléfono: 2279-8644 / 2220-6977
+
+---INFORMACION_COMPLETA---
+• **Tipo de centro:** Establecimiento de atención médica primaria (EBAIS).
+• **Servicios prestados:** Consulta médica general, odontología, enfermería, vacunación y entrega de medicamentos.
+• **Área de Salud:** Adscrito al Área de Salud San Juan - San Diego - Concepción.
+• **Nota importante:** Este es un centro de salud y NO realiza trámites administrativos ni patronales de la CCSS.
+• **Citas médicas:** Se gestionan mediante la app oficial EDUS a partir de las 6:00 a.m.
+            """.trimIndent()
+        }
+
+        // 1B. EBAIS de La Unión en general (o Clínica Dr. Diego Miranda / Área de Salud La Unión)
+        if (isEbaisOrSalud && hasTresRios) {
+            return """
+🏥 **Clínica Dr. Diego Miranda Vargas (Área de Salud La Unión / EBAIS Tres Ríos)**
+
+🕒 1. HORARIO
+Horario: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m. | Urgencias: Lunes a domingo 7:00 a.m. – 10:00 p.m.
+Cerrado: Consulta externa cerrada fines de semana y feriados (Urgencias opera todos los días)
+
+📍 2. UBICACIÓN:
+Provincia: Cartago
+Cantón: La Unión
 Distrito: Tres Ríos
-Dirección exacta: 100 m este y 25 m norte de la esquina noreste del Parque de Tres Ríos (frente al costado norte de la Iglesia Católica)
+Dirección exacta: 200 m norte y 75 m este de la Parroquia Nuestra Señora del Pilar (Tres Ríos centro)
+
+📞 3. TELÉFONO
+Teléfono: 2518-7100 / 2518-7117 / 2279-7128
+
+---INFORMACION_COMPLETA---
+• **Tipo de centro:** Centro de salud y atención médica (NO es la sucursal administrativa de trámites).
+• **Servicios:** Consultas médicas, EBAIS 1, 2, 5 y 8, farmacia, laboratorio y urgencias médicas.
+• **Línea nacional CCSS para citas:** 905-MISALUD (905-647-2583) o app EDUS.
+• **Emergencias graves fuera de horario:** Remitirse al Hospital Max Peralta (Cartago) o Calderón Guardia.
+            """.trimIndent()
+        }
+
+        // 1C. CCSS Sucursal Administrativa de La Unión (Trámites, pagos, aseguramiento, NO atiende médicos)
+        val isCcssAdmin = q.contains("ccss") || q.contains("caja") || q.contains("sucursal") ||
+                q.contains("trámite") || q.contains("tramite") || q.contains("aseguramiento") ||
+                q.contains("orden patronal") || q.contains("pago") || q.contains("pension") || q.contains("pensión")
+        if (isCcssAdmin && hasTresRios) {
+            return """
+🏛️ **CCSS - Sucursal Administrativa La Unión / Tres Ríos (Cartago)**
+
+🕒 1. HORARIO
+Horario: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m. (Jornada continua)
+Cerrado: fines de semana y días feriados
+
+📍 2. UBICACIÓN:
+Provincia: Cartago
+Cantón: La Unión
+Distrito: Tres Ríos
+Dirección exacta: 100 m este y 25 m norte de la esquina noreste del Parque de Tres Ríos (costado norte de la Iglesia Católica)
 
 📞 3. TELÉFONO
 Teléfono: 2279-4242 / 2279-4343 / 2279-7023
 
 ---INFORMACION_COMPLETA---
-• **Clínica Dr. Diego Miranda Vargas (Consulta Externa y EBAIS):** Lunes a Jueves: 7:00 a.m. – 4:00 p.m. | Viernes: 7:00 a.m. – 3:00 p.m.
-• **Servicio de Urgencias Médicas:** Lunes a Domingo: 7:00 a.m. – 10:00 p.m. (200 m norte y 75 m este del costado este de la Parroquia Nuestra Señora del Pilar).
-• **Teléfonos Clínica:** 2279-7128 / 2279-7129
-• **Central telefónica nacional CCSS:** 905-MISALUD (905-647-2583)
+• **Tipo de sede:** Oficina administrativa y financiera de la CCSS.
+• **Trámites exclusivos:** Afiliación y aseguramiento, validación de derechos, cobro y facturación patronal, incapacidades y certificaciones.
+• **Atención médica:** Esta sucursal es estrictamente administrativa y NO brinda atención médica ni despacho de medicinas. Para consultas de salud acuda a su EBAIS correspondiente.
 • **Correo oficial:** sucursal_launion@ccss.sa.cr
-• **Citas médicas y recetas:** App móvil oficial EDUS y portal web aissfa.ccss.sa.cr
-• **Feriados y notas:** Las oficinas administrativas cierran feriados de ley. Urgencias atiende todos los días. Para trámites presenciales presentar cédula física vigente o DIMEX original.
             """.trimIndent()
         }
 
@@ -1372,28 +1425,54 @@ Teléfono: 2242-6700
             """.trimIndent()
         }
 
-        // 9. CCSS general (EBAIS / Clínicas / Sucursales)
-        if (q.contains("ccss") || q.contains("caja") || q.contains("ebais") || q.contains("clinica") || q.contains("clínica")) {
+        // 9A. Si buscan específicamente EBAIS / Área de Salud en general
+        if (q.contains("ebais") || q.contains("área de salud") || q.contains("area de salud")) {
             return """
-🏛️ **Caja Costarricense de Seguro Social (CCSS) - Red Nacional**
+🏥 **Red Nacional de EBAIS y Áreas de Salud (Atención Médica Primaria)**
 
 🕒 1. HORARIO
 Horario: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m.
-Cerrado: fines de semana y días feriados (Hospitales y emergencias atienden 24 horas)
+Cerrado: fines de semana y días feriados (Clínicas de urgencias atienden 24/7)
+
+📍 2. UBICACIÓN:
+Provincia: Red Nacional
+Cantón: Consulta por tu cantón y comunidad
+Distrito: Distrito de residencia asignado
+Dirección exacta: EBAIS de tu sector asignado según lugar de residencia
+
+📞 3. TELÉFONO
+Teléfono: 905-647-2583 (905-MISALUD)
+
+---INFORMACION_COMPLETA---
+• **Tipo de establecimiento:** EBAIS (Equipo Básico de Atención Integral en Salud).
+• **Atención:** Consultas de medicina general, enfermería, farmacia y vacunación.
+• **Importante:** Los EBAIS NO realizan trámites patronales, facturación ni aseguramiento de la CCSS.
+• **Citas médicas:** Solicítalas diariamente a través de la aplicación oficial EDUS.
+            """.trimIndent()
+        }
+
+        // 9B. Si buscan CCSS / Sucursal Administrativa en general
+        if (q.contains("ccss") || q.contains("caja") || q.contains("sucursal")) {
+            return """
+🏛️ **Caja Costarricense de Seguro Social (CCSS) - Oficinas Administrativas**
+
+🕒 1. HORARIO
+Horario: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m.
+Cerrado: fines de semana y días feriados
 
 📍 2. UBICACIÓN:
 Provincia: San José (Sede Central)
 Cantón: San José
 Distrito: Catedral
-Dirección exacta: Avenida Segunda, Calles 5 y 7 (y sucursales/EBAIS en los 84 cantones del país)
+Dirección exacta: Avenida Segunda, Calles 5 y 7 (y sucursales administrativas en cada cantón del país)
 
 📞 3. TELÉFONO
-Teléfono: 905-647-2583 / 2539-0000
+Teléfono: 2539-0000 / 905-647-2583
 
 ---INFORMACION_COMPLETA---
-• **Central nacional de citas:** 905-MISALUD (905-647-2583)
-• **Citas y recetas:** App móvil oficial EDUS y portal web aissfa.ccss.sa.cr
-• **Notas:** En feriados de ley se suspende la atención administrativa programada. Emergencias y hospitalización operan de forma ininterrumpida las 24 horas.
+• **Tipo de sede:** Oficinas administrativas y financieras de la CCSS.
+• **Trámites exclusivos:** Afiliación y aseguramiento voluntario/asalariado, validación de derechos, reporte de planillas y cobro a patronos, incapacidades.
+• **Importante:** Las oficinas de la CCSS son administrativas y NO prestan atención médica ni dan citas de salud (para atención médica acuda a su EBAIS o Área de Salud).
             """.trimIndent()
         }
 
@@ -1513,10 +1592,17 @@ suspend fun executeAiPublicServiceQuery(
                 Eres el informador oficial de Horarios y Servicios Públicos para $country ($tzLabel).
                 CONSULTA DEL USUARIO: $query
 
+                REGLA CRÍTICA DE DIFERENCIACIÓN (NO CONFUNDIR):
+                1. 🏛️ CCSS (Sucursal Administrativa) = Trámites, aseguramiento, pagos, certificaciones, reporte patronal. NO atiende médicos ni citas.
+                2. 🏥 EBAIS / Área de Salud = Consultas médicas, odontología, medicamentos, enfermería, vacunas, urgencias. NO hace trámites administrativos de la CCSS.
+                3. NUNCA mezclarlos ni intercambiar su información:
+                   - Si el usuario busca "EBAIS", "Clínica", o "Área de Salud" (ej: "EBAIS Concepción Sur", "Área de Salud San Juan-San Diego-Concepción"): busca y da ÚNICAMENTE los datos del EBAIS o Área de Salud médica solicitada, con icono 🏥. Su teléfono debe ser del centro de salud, NO de la sucursal de la CCSS.
+                   - Si el usuario busca "CCSS" o "Sucursal" (ej: "CCSS La Unión", "CCSS Tres Ríos"): da ÚNICAMENTE los datos de la sucursal administrativa de trámites de la CCSS, con icono 🏛️.
+
                 FORMATO OBLIGATORIO DE RESPUESTA:
                 Muestra ÚNICAMENTE los datos esenciales, limpios, directos y ordenados, siguiendo esta estructura exacta:
 
-                🏛️ [Nombre oficial de la institución o sucursal]
+                [Icono 🏥 o 🏛️ según corresponda] [Nombre exacto del EBAIS, Área de Salud o Institución solicitada]
 
                 🕒 1. HORARIO
                 Horario: [Días y horas exactas, ej: Lunes a jueves 7:00 a.m. – 4:00 p.m. | Viernes 7:00 a.m. – 3:00 p.m.]
@@ -1526,13 +1612,13 @@ suspend fun executeAiPublicServiceQuery(
                 Provincia: [Nombre de la provincia o estado]
                 Cantón: [Nombre del cantón o municipio]
                 Distrito: [Nombre del distrito o localidad]
-                Dirección exacta: [Señas claras y precisas de ubicación]
+                Dirección exacta: [Señas claras y precisas de la sede específica solicitada]
 
                 📞 3. TELÉFONO
-                Teléfono: [Solo números directos de la sucursal o central]
+                Teléfono: [Solo números directos de la sede específica solicitada]
 
                 ---INFORMACION_COMPLETA---
-                [Coloca aquí abajo CUALQUIER información complementaria: enlaces web, app EDUS, requisitos de cédula, notas largas, citas o recomendaciones]
+                [Coloca aquí abajo CUALQUIER información complementaria: notas del centro, adscripción, citas por EDUS, o recomendaciones]
 
                 REGLAS ESTRICTAS:
                 - En la parte principal (antes de ---INFORMACION_COMPLETA---) NO pongas sitios web, enlaces, apps, requisitos de cédula, ni notas largas. Solo Horario, Ubicación dividida y Teléfono.
