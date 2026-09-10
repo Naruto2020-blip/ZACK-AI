@@ -105,28 +105,28 @@ fun ChatMessageBubble(
     var isExporting by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Interactive Exam & Job Form Detection
-    val interactiveExam = remember(message.content, message.isError) {
-        if (!message.isError && !isUser) parseInteractiveExam(message.content) else null
-    }
-    val interactiveJobForm = remember(message.content, message.isError) {
-        if (!message.isError && !isUser) parseInteractiveJobForm(message.content) else null
-    }
-    val isInteractive = interactiveExam != null || interactiveJobForm != null
-
     // Smart Signature State
     var showSignaturePad by remember { mutableStateOf(false) }
     var showSignaturePlacement by remember { mutableStateOf(false) }
     var currentSignatureBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val isSignableDocument = remember(message.content, message.isError, isInteractive) {
-        !message.isError && !isInteractive && DocumentSignatureDetector.isSignableDocument(message.content)
+    val isSignableDocument = remember(message.content, message.isError) {
+        !message.isError && DocumentSignatureDetector.isSignableDocument(message.content)
     }
 
-    val displayContent = remember(message.content, message.isError, isSignableDocument, isInteractive) {
-        if (!message.isError && !isInteractive && (isSignableDocument || message.content.contains("Para redactar", ignoreCase = true) || message.content.contains("[ej:", ignoreCase = true))) {
-            DocumentCleaner.cleanLetterDocument(message.content, sessionTitle)
+    val displayContent = remember(message.content, message.isError, isSignableDocument) {
+        var content = message.content
+        if (content.contains("[EXAMEN_INTERACTIVO]") || content.contains("[FORMULARIO_LABORAL", ignoreCase = true)) {
+            content = content
+                .replace("[EXAMEN_INTERACTIVO]", "")
+                .replace("[/EXAMEN_INTERACTIVO]", "")
+                .replace(Regex("\\[FORMULARIO_LABORAL[^\\]]*\\]", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("\\[/FORMULARIO_LABORAL\\]", RegexOption.IGNORE_CASE), "")
+                .trim()
+        }
+        if (!message.isError && (isSignableDocument || content.contains("Para redactar", ignoreCase = true) || content.contains("[ej:", ignoreCase = true))) {
+            DocumentCleaner.cleanLetterDocument(content, sessionTitle)
         } else {
-            message.content
+            content
         }
     }
 
@@ -270,16 +270,6 @@ fun ChatMessageBubble(
                                     lineHeight = 20.sp
                                 )
                             }
-                        } else if (interactiveExam != null) {
-                            InteractiveExamCard(
-                                exam = interactiveExam,
-                                onSubmitAnswers = onSendMessage
-                            )
-                        } else if (interactiveJobForm != null) {
-                            InteractiveJobFormCard(
-                                jobForm = interactiveJobForm,
-                                onSubmitDocument = onSendMessage
-                            )
                         } else {
                             SelectionContainer {
                                 MarkdownContent(
