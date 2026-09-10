@@ -47,29 +47,13 @@ jobs:
       - name: Build Android APK
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          # Si se configuró el keystore en los Secrets de GitHub, decodificarlo y compilar Release firmado
-          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
-            echo "==> Configurando firma con Keystore de producción (Release)..."
-            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
-            export KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
-            gradle :app:assembleRelease --no-daemon --no-configuration-cache --stacktrace
-            mkdir -p release-output
-            cp app/build/outputs/apk/release/*.apk release-output/ || true
-          else
-            echo "==> Generando APK firmado automáticamente (Debug APK firmado listo para instalar)..."
-            gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace
-          fi
+          echo "==> Compilando APK estándar de depuración (listo para instalar)..."
+          gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-apk
-          path: |
-            app/build/outputs/apk/debug/
-            app/build/outputs/apk/release/
+          path: app/build/outputs/apk/debug/
           retention-days: 14

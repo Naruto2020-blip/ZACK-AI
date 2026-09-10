@@ -340,7 +340,7 @@ fun InteractiveExamCard(
     onSubmitAnswers: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val answers = rememberSaveable { mutableStateMapOf<Int, String>() }
+    val answers = remember { mutableStateMapOf<Int, String>() }
     var submitted by rememberSaveable { mutableStateOf(false) }
 
     Surface(
@@ -564,7 +564,7 @@ fun InteractiveJobFormCard(
     onSubmitDocument: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val sectionAnswers = rememberSaveable { mutableStateMapOf<String, String>() }
+    val sectionAnswers = remember { mutableStateMapOf<String, String>() }
     var submitted by rememberSaveable { mutableStateOf(false) }
 
     Surface(

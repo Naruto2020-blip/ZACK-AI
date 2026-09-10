@@ -53,7 +53,11 @@ object SmartHabitsManager {
 
         try {
             val raw = prefs.getString(KEY_HABIT_EVENTS, "[]") ?: "[]"
-            val array = JSONArray(raw)
+            val array = try {
+                JSONArray(raw)
+            } catch (_: Exception) {
+                JSONArray()
+            }
             val now = System.currentTimeMillis()
 
             var found = false
@@ -128,7 +132,11 @@ object SmartHabitsManager {
 
         try {
             val raw = prefs.getString(KEY_HABIT_EVENTS, "[]") ?: "[]"
-            val array = JSONArray(raw)
+            val array = try {
+                JSONArray(raw)
+            } catch (_: Exception) {
+                JSONArray()
+            }
 
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
