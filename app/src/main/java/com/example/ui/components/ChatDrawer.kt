@@ -99,14 +99,7 @@ fun ChatDrawerContent(
     var sessionToDelete by remember { mutableStateOf<ChatSessionEntity?>(null) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
     var showModesDialog by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
     var isToolsExpanded by remember { mutableStateOf(false) }
-    var isHistoryExpanded by remember { mutableStateOf(true) }
-
-    val displayedSessions = remember(sessions, searchQuery) {
-        if (searchQuery.isBlank()) sessions
-        else sessions.filter { it.title.contains(searchQuery, ignoreCase = true) }
-    }
 
     // Diálogo completo de Selección de Modos de la IA
     if (showModesDialog) {
@@ -615,238 +608,107 @@ fun ChatDrawerContent(
             HorizontalDivider(color = ObsidianCardBorder.copy(alpha = 0.7f))
             Spacer(modifier = Modifier.height(6.dp))
 
-            // ⭐ SECCIÓN: FAVORITOS Y HISTORIAL (Plegable)
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { isHistoryExpanded = !isHistoryExpanded },
-                color = if (isHistoryExpanded) ObsidianCard.copy(alpha = 0.5f) else Color.Transparent,
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(
+            // 💬 Conversaciones / Historial de chats
+            if (sessions.isEmpty()) {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "⭐",
-                            fontSize = 13.sp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "FAVORITOS Y HISTORIAL",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AmberGold,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
-                    Icon(
-                        imageVector = if (isHistoryExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (isHistoryExpanded) "Cerrar Favoritos e Historial" else "Abrir Favoritos e Historial",
-                        tint = AmberGold,
-                        modifier = Modifier.size(18.dp)
+                    Text(
+                        text = "No hay conversaciones",
+                        color = TextSecondaryDark,
+                        fontSize = 13.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
-            }
-
-            AnimatedVisibility(
-                visible = isHistoryExpanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
+            } else {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // ⭐ Mensajes Favoritos
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onOpenFavorites() }
-                            .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
-                            .testTag("drawer_favorites_button"),
-                        color = ObsidianCard,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
+                    sessions.forEach { session ->
+                        val isSelected = session.id == currentSessionId
+                        Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onSelectSession(session.id) }
+                                .testTag("session_item_${session.id}"),
+                            color = if (isSelected) (if (isAppDark()) ObsidianCard else Color(0xFFEFF6FF)) else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp),
+                            border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, if (isAppDark()) DeepIndigo else ElectricCyan) else null
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = "Favoritos",
-                                tint = AmberGold,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Mensajes Favoritos",
-                                color = TextPrimaryDark,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    // 🔍 Buscar en chats...
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { Text("Buscar en chats...", color = TextSecondaryDark, fontSize = 12.sp) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Buscar",
-                                tint = TextSecondaryDark,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        trailingIcon = {
-                            if (searchQuery.isNotBlank()) {
-                                IconButton(
-                                    onClick = { searchQuery = "" },
-                                    modifier = Modifier.size(24.dp)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Clear,
-                                        contentDescription = "Limpiar búsqueda",
+                                        imageVector = Icons.Default.ChatBubbleOutline,
+                                        contentDescription = null,
+                                        tint = if (isSelected) ElectricCyan else TextSecondaryDark,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = session.title,
+                                            color = if (isSelected) TextPrimaryDark else TextSecondaryDark,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = dateFormat.format(Date(session.updatedAt)),
+                                            color = TextTertiaryDark,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = { sessionToDelete = session },
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .testTag("delete_session_button_${session.id}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteOutline,
+                                        contentDescription = "Eliminar chat",
                                         tint = TextSecondaryDark,
-                                        modifier = Modifier.size(14.dp)
+                                        modifier = Modifier.size(15.dp)
                                     )
                                 }
                             }
-                        },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = ObsidianCard,
-                            unfocusedContainerColor = ObsidianCard,
-                            focusedBorderColor = ElectricCyan,
-                            unfocusedBorderColor = ObsidianCardBorder,
-                            focusedTextColor = TextPrimaryDark,
-                            unfocusedTextColor = TextPrimaryDark
-                        )
+                        }
+                    }
+                }
+            }
+
+            // Borrar todo el historial (con confirmación segura)
+            if (sessions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                TextButton(
+                    onClick = { showClearAllConfirm = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = null,
+                        tint = RoseRed,
+                        modifier = Modifier.size(15.dp)
                     )
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    // Historial de Conversaciones
-                    if (displayedSessions.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (searchQuery.isNotBlank()) "No se encontraron chats con '$searchQuery'" else "No hay conversaciones",
-                                color = TextSecondaryDark,
-                                fontSize = 12.sp,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                        }
-                    } else {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            displayedSessions.forEach { session ->
-                                val isSelected = session.id == currentSessionId
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { onSelectSession(session.id) }
-                                        .testTag("session_item_${session.id}"),
-                                    color = if (isSelected) (if (isAppDark()) ObsidianCard else Color(0xFFEFF6FF)) else Color.Transparent,
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, if (isAppDark()) DeepIndigo else ElectricCyan) else null
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.ChatBubbleOutline,
-                                                contentDescription = null,
-                                                tint = if (isSelected) ElectricCyan else TextSecondaryDark,
-                                                modifier = Modifier.size(15.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Column {
-                                                Text(
-                                                    text = session.title,
-                                                    color = if (isSelected) TextPrimaryDark else TextSecondaryDark,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                Text(
-                                                    text = dateFormat.format(Date(session.updatedAt)),
-                                                    color = TextTertiaryDark,
-                                                    fontSize = 10.sp
-                                                )
-                                            }
-                                        }
-
-                                        IconButton(
-                                            onClick = { sessionToDelete = session },
-                                            modifier = Modifier
-                                                .size(28.dp)
-                                                .testTag("delete_session_button_${session.id}")
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.DeleteOutline,
-                                                contentDescription = "Eliminar chat",
-                                                tint = TextSecondaryDark,
-                                                modifier = Modifier.size(15.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Borrar todo el historial (con confirmación segura)
-                    if (sessions.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        TextButton(
-                            onClick = { showClearAllConfirm = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DeleteOutline,
-                                contentDescription = null,
-                                tint = RoseRed,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Borrar todo el historial", color = RoseRed, fontSize = 11.sp)
-                        }
-                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Borrar todo el historial", color = RoseRed, fontSize = 11.sp)
                 }
             }
         }
