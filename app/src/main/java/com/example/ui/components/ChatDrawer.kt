@@ -275,41 +275,7 @@ fun ChatDrawerContent(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Settings Button
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { onOpenSettings() }
-                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(10.dp)),
-            color = ObsidianCard,
-            shape = RoundedCornerShape(10.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Ajustes",
-                    tint = CyanAccent,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Ajustes",
-                    color = TextPrimaryDark,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // 🎭 "Modos" Button (DEBAJO de Ajustes)
+        // 🎭 "Modos" Button
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -882,6 +848,32 @@ fun ChatDrawerContent(
                         }
                     }
                 }
+            }
+        }
+
+        // ⚙️ Botón de Ajustes (Ícono limpio en la esquina inferior derecha)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(ObsidianCard)
+                    .border(1.dp, ObsidianCardBorder, CircleShape)
+                    .testTag("drawer_settings_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Ajustes",
+                    tint = CyanAccent,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
     }
