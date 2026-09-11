@@ -56,19 +56,12 @@ import com.example.data.model.GeminiModelSpec
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.ChatUiState
 
-private data class PersonaOption(
-    val title: String,
-    val description: String,
-    val icon: ImageVector,
-    val accentColor: Color
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSheet(
     uiState: ChatUiState,
     onDismiss: () -> Unit,
-    onSetPersona: (String) -> Unit,
+    onSetPersona: ((String) -> Unit)? = null,
     onSaveApiKey: ((String) -> Unit)? = null,
     currentThemeMode: String = "dark",
     onSetThemeMode: (String) -> Unit = {},
@@ -82,63 +75,6 @@ fun SettingsSheet(
     }
     var showApiKeyInput by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var showModelsDialog by remember { mutableStateOf(false) }
-
-    val personas = listOf(
-        PersonaOption(
-            title = "🔄 Asistente Inteligente",
-            description = "Vuelve a la IA original, sin especialidad. Es el modo por defecto.",
-            icon = Icons.Default.AutoAwesome,
-            accentColor = ElectricCyan
-        ),
-        PersonaOption(
-            title = "⚖️ Abogado",
-            description = "Redacta contratos, cartas legales, autorizaciones, renuncias, explica derechos y leyes en lenguaje claro.",
-            icon = Icons.Default.SmartToy,
-            accentColor = Color(0xFFF59E0B)
-        ),
-        PersonaOption(
-            title = "👨‍⚕️ Médico / Doctor",
-            description = "Explica síntomas, da consejos de salud, explica términos médicos, cuándo ir al médico, cuidados generales.",
-            icon = Icons.Default.SmartToy,
-            accentColor = Color(0xFF10B981)
-        ),
-        PersonaOption(
-            title = "🧠 Psicólogo",
-            description = "Apoyo emocional, escucha sin juzgar, da consejos para manejo de emociones, estrés, relaciones y bienestar.",
-            icon = Icons.Default.Psychology,
-            accentColor = RadiantViolet
-        ),
-        PersonaOption(
-            title = "✍️ Redactor / Escritor",
-            description = "Escribe cartas, correos, ensayos, discursos, textos creativos, profesionales y personalizados.",
-            icon = Icons.Default.Create,
-            accentColor = Color(0xFFEC4899)
-        ),
-        PersonaOption(
-            title = "📚 Profesor / Tutor",
-            description = "Explica temas difíciles paso a paso, ayuda con tareas, resúmenes, ejercicios, prepara exámenes.",
-            icon = Icons.Default.Code,
-            accentColor = Color(0xFF3B82F6)
-        ),
-        PersonaOption(
-            title = "🛠️ Técnico / Soporte",
-            description = "Soluciona errores en celulares, apps y computadoras, configuraciones y pasos prácticos.",
-            icon = Icons.Default.Settings,
-            accentColor = Color(0xFF06B6D4)
-        ),
-        PersonaOption(
-            title = "💰 Asesor Financiero",
-            description = "Organiza presupuestos familiares, ahorro, control de gastos diarios y finanzas personales.",
-            icon = Icons.Default.SmartToy,
-            accentColor = Color(0xFF10B981)
-        ),
-        PersonaOption(
-            title = "📄 Trabajador / RRHH",
-            description = "Redacta currículums, cartas de solicitud, renuncias y preparación para entrevistas.",
-            icon = Icons.Default.Create,
-            accentColor = Color(0xFF8B5CF6)
-        )
-    )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -592,116 +528,6 @@ fun SettingsSheet(
                                 )
                             ) {
                                 Text("Guardar Clave", fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Section 2: 🎭 Rol / Persona del Sistema
-            Text(
-                text = "Rol y Personalidad del Asistente",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimaryDark,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-            Text(
-                text = "Selecciona cómo deseas que responda la IA en tus consultas:",
-                color = TextSecondaryDark,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                personas.forEach { persona ->
-                    val isSelected = uiState.systemPersona == persona.title ||
-                            (uiState.systemPersona.contains("Asistente") && persona.title.contains("Asistente")) ||
-                            (persona.title.contains("Abogado") && uiState.systemPersona.contains("Abogado")) ||
-                            (persona.title.contains("Médico") && uiState.systemPersona.contains("Médico")) ||
-                            (persona.title.contains("Psicólogo") && uiState.systemPersona.contains("Psicólogo")) ||
-                            (persona.title.contains("Redactor") && uiState.systemPersona.contains("Redactor")) ||
-                            (persona.title.contains("Profesor") && uiState.systemPersona.contains("Profesor")) ||
-                            (persona.title.contains("Técnico") && uiState.systemPersona.contains("Técnico")) ||
-                            (persona.title.contains("Financiero") && uiState.systemPersona.contains("Financiero")) ||
-                            ((persona.title.contains("Trabajador") || persona.title.contains("RRHH") || persona.title.contains("Recursos")) &&
-                                    (uiState.systemPersona.contains("Trabajador") || uiState.systemPersona.contains("RRHH") || uiState.systemPersona.contains("Recursos")))
-
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { onSetPersona(persona.title) }
-                            .border(
-                                width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) persona.accentColor else ObsidianCardBorder,
-                                shape = RoundedCornerShape(12.dp)
-                            ),
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) (if (isAppDark()) Color(0xFF131D2E) else persona.accentColor.copy(alpha = 0.12f)) else ObsidianCard
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isSelected) persona.accentColor.copy(alpha = 0.2f)
-                                    else if (isAppDark()) Color(0xFF1E293B) else ObsidianSubtle
-                                ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = persona.icon,
-                                    contentDescription = null,
-                                    tint = if (isSelected) persona.accentColor else TextSecondaryDark,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = persona.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = TextPrimaryDark
-                                )
-                                Text(
-                                    text = persona.description,
-                                    color = TextSecondaryDark,
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp
-                                )
-                            }
-
-                            if (isSelected) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(22.dp)
-                                        .clip(CircleShape)
-                                        .background(persona.accentColor),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Seleccionado",
-                                        tint = ObsidianBackground,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
                             }
                         }
                     }
