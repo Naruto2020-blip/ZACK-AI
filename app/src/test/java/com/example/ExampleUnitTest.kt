@@ -1,6 +1,8 @@
 package com.example
 
 import com.example.util.DocumentCleaner
+import com.example.util.RealTimeGroundingService
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -63,6 +65,24 @@ class ExampleUnitTest {
     assertTrue("Should retain salutation 'Estimados señores:'", cleaned.contains("Estimados señores:"))
     assertTrue("Should retain clean bracket placeholder '[Tu Nombre Completo]'", cleaned.contains("[Tu Nombre Completo]"))
     assertTrue("Should retain signature placeholder", cleaned.contains("_____________________________"))
+  }
+
+  @Test
+  fun testRealTimeGroundingServiceDetectsQueries() {
+    assertFalse("Greeting should not trigger web search", RealTimeGroundingService.shouldSearchWeb("Hola"))
+    assertFalse("Greeting should not trigger web search", RealTimeGroundingService.shouldSearchWeb("gracias"))
+    assertTrue("President query should trigger web search", RealTimeGroundingService.shouldSearchWeb("presidenta de Costa Rica"))
+    assertTrue("News query should trigger web search", RealTimeGroundingService.shouldSearchWeb("noticias de hoy"))
+    assertTrue("Price query should trigger web search", RealTimeGroundingService.shouldSearchWeb("precio del dolar"))
+  }
+
+  @Test
+  fun testRealTimeGroundingServiceFetchesLiveContext() = runBlocking {
+    val context = RealTimeGroundingService.fetchRealTimeContext("presidenta de Costa Rica")
+    assertNotNull("Real-time context should not be null", context)
+    assertTrue("Real-time context should contain Costa Rica or Laura Fernández", 
+      context!!.contains("Costa Rica", ignoreCase = true) || context.contains("Laura Fernández", ignoreCase = true))
+    assertTrue("Should include year 2026", context.contains("2026"))
   }
 }
 

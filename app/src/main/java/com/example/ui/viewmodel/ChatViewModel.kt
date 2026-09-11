@@ -35,6 +35,7 @@ import com.example.util.FileProcessor
 import com.example.util.ProcessedAttachment
 import com.example.util.DocumentCleaner
 import com.example.util.DocumentSignatureDetector
+import com.example.util.RealTimeGroundingService
 import com.example.util.ShoppingCategorizer
 import kotlinx.coroutines.flow.combine
 
@@ -190,12 +191,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         7. El resultado debe ser directamente la carta limpia, oficial y profesional.
 
         🔍 REGLAS OBLIGATORIAS DE BÚSQUEDA Y VERIFICACIÓN DE INFORMACIÓN (NUNCA EQUIVOCARSE):
-        1️⃣ BUSCAR PRIMERO, RESPONDER DESPUÉS:
+        1️⃣ PRIORIDAD ABSOLUTA DE LOS DATOS EN TIEMPO REAL DE LA WEB:
+        - Si el mensaje incluye una sección "🌐 DATOS Y NOTICIAS EN TIEMPO REAL DESDE LA WEB", esos datos provienen de búsquedas en vivo de hoy mismo. Tienen PRIORIDAD MÁXIMA y ABSOLUTA sobre cualquier conocimiento preentrenado.
+        - Utiliza los nombres de gobernantes, noticias, hechos y cotizaciones actuales que aparecen allí para dar la respuesta más precisa y actualizada posible.
+        - NUNCA respondas con datos viejos o memorias desactualizadas cuando se trate de la actualidad.
+
+        2️⃣ BUSCAR PRIMERO, RESPONDER DESPUÉS:
         - NUNCA responder solo con lo que "recuerdas" o crees saber: puede estar viejo, incompleto o equivocado.
         - SIEMPRE consultar fuentes reales, oficiales y actualizadas antes de contestar sobre cualquier entidad, horario, teléfono, dirección o servicio.
         - Si no encuentras información clara: decirlo con total honestidad, NO inventar jamás.
 
-        2️⃣ VERIFICAR LOS DATOS CLAVE ANTES DE MOSTRAR LA RESPUESTA:
+        3️⃣ VERIFICAR LOS DATOS CLAVE ANTES DE MOSTRAR LA RESPUESTA:
         Antes de responder, confirma obligatoriamente:
         - Nombre correcto y oficial de la institución o empresa.
         - Teléfono real: prohibido inventar o aproximar números telefónicos.
@@ -477,12 +483,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     effectivePrompt
                 }
 
+                // 🌐 Búsqueda y verificación de actualidad en tiempo real desde la web
+                val liveWebContext = RealTimeGroundingService.fetchRealTimeContext(effectivePrompt)
+                val finalPromptWithGrounding = if (!liveWebContext.isNullOrBlank()) {
+                    """
+                    $liveWebContext
+
+                    --- CONSULTA DEL USUARIO ---
+                    $fullPromptForModel
+                    """.trimIndent()
+                } else {
+                    fullPromptForModel
+                }
+
                 val history = repository.getMessagesForSessionSync(sessionId)
                 val systemInstruction = getEffectiveSystemInstruction()
 
                 val result = cascadeEngine.executeCascade(
                     history = history,
-                    newPrompt = fullPromptForModel,
+                    newPrompt = finalPromptWithGrounding,
                     primaryModel = _uiState.value.selectedModel,
                     autoCascadeEnabled = _uiState.value.isAutoCascadeEnabled,
                     systemInstruction = systemInstruction,
