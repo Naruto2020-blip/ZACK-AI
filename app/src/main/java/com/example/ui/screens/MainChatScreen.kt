@@ -850,12 +850,29 @@ fun ChatTopBar(
                         tint = TextPrimaryDark
                     )
                 }
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(2.dp))
+                // Logo pequeño
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = if (isAppDark()) DarkBackground else Color.White,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(7.dp))
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimaryDark
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = TextPrimaryDark.copy(alpha = 0.85f),
+                    letterSpacing = 0.3.sp
                 )
             }
 
