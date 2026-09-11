@@ -29,7 +29,7 @@ enum class GeminiModelSpec(
         speedRating = 5,
         reasoningRating = 5,
         totalDailyRequests = 1500,
-        fallbackAliases = listOf("gemini-3.5-flash", "gemini-2.5-flash")
+        fallbackAliases = listOf("gemini-3.5-flash", "gemini-3.6-flash")
     ),
     GEMINI_3_5_FLASH(
         id = "gemini-3.5-flash",
@@ -41,11 +41,11 @@ enum class GeminiModelSpec(
         speedRating = 5,
         reasoningRating = 4,
         totalDailyRequests = 1500,
-        fallbackAliases = listOf("gemini-flash-latest", "gemini-2.5-flash")
+        fallbackAliases = listOf("gemini-flash-latest", "gemini-3.6-flash")
     ),
     GEMINI_3_7_FLASH(
-        id = "gemini-2.5-flash",
-        displayName = "Gemini 2.5 Flash",
+        id = "gemini-3.6-flash",
+        displayName = "Gemini 3.6 Flash",
         roleBadge = "Respaldo #2 (Estable / Multimodal)",
         isPrimary = false,
         orderIndex = 3,

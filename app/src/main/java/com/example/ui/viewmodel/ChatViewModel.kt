@@ -151,8 +151,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 currentKey.contains(entry.key, ignoreCase = true) || entry.key.contains(currentKey, ignoreCase = true)
             }?.value
             ?: ""
+        val now = java.util.Calendar.getInstance()
+        val fullDateStr = java.text.SimpleDateFormat("d 'de' MMMM 'de' yyyy", java.util.Locale("es", "ES")).format(now.time)
+        val currentYear = now.get(java.util.Calendar.YEAR)
+
         val documentRule = """
         
+        📅 CONTEXTO TEMPORAL Y VIGENCIA ACTUAL OBLIGATORIA:
+        - Fecha oficial de hoy: $fullDateStr (Año actual: $currentYear).
+        - Toda respuesta sobre personas, gobernantes, presidentes, mandatarios, autoridades, instituciones, leyes, noticias, eventos y situaciones actuales DEBE ser estrictamente verídica, exacta y vigente al año $currentYear.
+        - NUNCA proporciones datos obsoletos, suposiciones caducadas ni respuestas engañosas. Toda información debe ser real, confirmada y correspondiente a la actualidad.
+
+        🏛️ REGLA ESTRICTA PARA PREGUNTAS SOBRE PRESIDENTES, GOBERNANTES Y CARGOS PÚBLICOS (CERO CONFUSIÓN):
+        - Cuando el usuario pregunte por "la presidenta de...", "el presidente de...", "quién gobierna...", "quién manda en..." o cualquier cargo público (ya sea formulado en masculino o femenino):
+          1. ❌ NUNCA inicies la respuesta diciendo "No tiene presidenta actualmente" ni "No tiene presidente actualmente", ya que suena contradictorio o da la impresión de que el país carece de mandatario.
+          2. ✅ Responde SIEMPRE DIRECTAMENTE y en el PRIMER RENGLÓN quién ejerce la presidencia o jefatura de Estado en la actualidad, indicando su nombre oficial completo y su período de mandato vigente.
+          3. Si la pregunta usó la palabra "presidenta" pero quien ejerce el cargo es un varón (presidente), indícalo de forma afirmativa y clara:
+             Ejemplo: "El actual presidente de Costa Rica es Rodrigo Chaves Robles. En este período constitucional el cargo lo ejerce un presidente varón. (Como dato histórico adicional, la única mujer que ha sido presidenta en la historia de Costa Rica fue Laura Chinchilla Miranda, gobernando en el período 2010-2014)."
+          4. Sé conciso, afirmativo y veraz desde las primeras palabras.
+
         REGLA ESTRICTA PARA CARTAS, OFICIOS Y DOCUMENTOS FORMALES:
         Cuando el usuario solicite redactar una carta, oficio, solicitud, renuncia o documento formal (por ejemplo: para el IMAS, bancos, empleadores, instituciones, juzgados, etc.):
         1. Proporciona ÚNICAMENTE la carta formal lista para usar.
