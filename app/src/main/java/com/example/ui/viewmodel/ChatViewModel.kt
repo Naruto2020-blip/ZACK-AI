@@ -233,6 +233,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
           "¿Quieres que te lo recuerde a la hora que acostumbras?"
         - Anticipa necesidades: si se acerca una fecha importante o se agota algo que use seguido, avisa con tiempo.
         - No seas insistente: si el usuario no pide recordatorio o ignora una sugerencia, reduce la frecuencia y no repitas la pregunta.
+
+        🖼️ REGLA ESTRICTA PARA SOLICITUDES DE IMÁGENES O DIBUJOS:
+        - Cuando el usuario solicite crear, dibujar, generar, ilustrar, pintar o mostrar una imagen o foto (ejemplo: "dibuja un perro", "genera una imagen de...", "haz una foto de...", "crea una imagen de..."):
+          1. Genera la imagen colocando en la PRIMERA LÍNEA la URL de Pollinations en sintaxis Markdown de imagen:
+             ![Descripción](https://image.pollinations.ai/prompt/{prompt_en_ingles_descriptivo_separado_por_guiones_o_codificado}?width=1024&height=1024&nologo=true&seed={numero_aleatorio})
+          2. En el párrafo siguiente, añade una descripción breve, atractiva y profesional en el idioma configurado.
+          3. NUNCA respondas diciendo que no puedes generar imágenes ni coloques enlaces web o URLs de texto sueltas.
         """.trimIndent()
         val langCode = _appLanguage.value
         val languagePromptDirective = when (langCode) {
@@ -572,11 +579,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     result.content
                 }
 
+                // 🖼️ Si el usuario pidió una imagen y la respuesta no incluye URL de imagen, generar enlace directo de imagen
+                val isImageQuery = isImageRequest(effectivePrompt)
+                val finalContent = if (!result.isError && isImageQuery && 
+                    !cleanContent.contains("image.pollinations.ai", ignoreCase = true) && 
+                    !cleanContent.contains(".jpg", ignoreCase = true) && 
+                    !cleanContent.contains(".png", ignoreCase = true)
+                ) {
+                    val promptForImage = cleanPromptForImage(effectivePrompt)
+                    val encoded = java.net.URLEncoder.encode(promptForImage, "UTF-8")
+                    val seed = (System.currentTimeMillis() % 100000).toInt()
+                    val imageUrl = "https://image.pollinations.ai/prompt/$encoded?width=1024&height=1024&nologo=true&seed=$seed"
+                    "![$promptForImage]($imageUrl)\n\n$cleanContent"
+                } else {
+                    cleanContent
+                }
+
                 // Guardar respuesta del modelo en base de datos
                 repository.insertMessage(
                     sessionId = sessionId,
                     role = "model",
-                    content = cleanContent,
+                    content = finalContent,
                     modelUsed = result.usedModel.displayName,
                     wasCascaded = result.wasCascaded,
                     cascadeReason = cascadeReason,
@@ -935,5 +958,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         sendMessage(summaryPrompt)
+    }
+
+    private fun isImageRequest(prompt: String): Boolean {
+        val p = prompt.lowercase().trim()
+        val patterns = listOf(
+            "genera una imagen", "generar imagen", "generame una imagen", "genérame una imagen",
+            "crea una imagen", "crear una imagen", "crear imagen", "créame una imagen", "creame una imagen",
+            "dibuja", "dibújame", "dibujame", "haz una imagen", "hazme una imagen",
+            "haz un dibujo", "hazme un dibujo", "muéstrame una imagen", "muestrame una imagen",
+            "quiero una imagen", "foto de", "imagen de", "ilustra", "ilustración de",
+            "ilustracion de", "draw", "generate an image", "create an image"
+        )
+        return patterns.any { p.contains(it) }
+    }
+
+    private fun cleanPromptForImage(prompt: String): String {
+        return prompt
+            .replace(Regex("(?i)^(?:genera|generar|generame|genérame|crea|crear|creame|créame|dibuja|dibújame|dibujame|haz|hazme|muéstrame|muestrame|quiero)\\s+(?:una\\s+|un\\s+)?(?:imagen|foto|dibujo|ilustración|ilustracion|cuadro)?\\s*(?:de|sobre)?\\s*"), "")
+            .trim()
+            .ifBlank { prompt }
     }
 }

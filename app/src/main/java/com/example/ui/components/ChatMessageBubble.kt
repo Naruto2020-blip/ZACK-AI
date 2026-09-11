@@ -40,6 +40,13 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.wrapContentHeight
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.util.ImageParser
+import com.example.util.ImageDownloader
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -124,8 +131,13 @@ fun ChatMessageBubble(
         !message.isError && DocumentSignatureDetector.isSignableDocument(message.content)
     }
 
-    val displayContent = remember(message.content, message.isError, isSignableDocument) {
-        var content = message.content
+    // 🖼️ Extraer imágenes y limpiar texto descriptivo (sin URLs ni códigos Markdown a la vista)
+    val parsedContent = remember(message.content) { ImageParser.parse(message.content) }
+    val imageUrls = parsedContent.imageUrls
+    val rawCleanText = parsedContent.cleanText
+
+    val displayContent = remember(rawCleanText, message.isError, isSignableDocument) {
+        var content = rawCleanText
         if (content.contains("[EXAMEN_INTERACTIVO]") || content.contains("[FORMULARIO_LABORAL", ignoreCase = true)) {
             content = content
                 .replace("[EXAMEN_INTERACTIVO]", "")
@@ -299,20 +311,149 @@ fun ChatMessageBubble(
 
                             Spacer(modifier = Modifier.height(4.dp))
 
-                            // Message Text Body
-                            if (message.isError) {
-                                Text(
-                                    text = message.content,
-                                    color = TextPrimaryDark,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontSize = 14.sp,
-                                    lineHeight = 20.sp
-                                )
-                            } else {
-                                MarkdownContent(
-                                    text = displayContent,
-                                    textColor = TextPrimaryDark
-                                )
+                            // 🖼️ MOSTRAR IMÁGENES: La imagen va arriba del texto descriptivo, bien ajustada al ancho
+                            if (imageUrls.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = if (displayContent.isNotBlank()) 10.dp else 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    imageUrls.forEach { imgUrl ->
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(Color(0xFF0F172A))
+                                                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(12.dp))
+                                        ) {
+                                            var imageLoading by remember { mutableStateOf(true) }
+                                            var imageError by remember { mutableStateOf(false) }
+
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data(imgUrl)
+                                                    .crossfade(true)
+                                                    .build(),
+                                                contentDescription = "Imagen generada",
+                                                contentScale = ContentScale.FillWidth,
+                                                onLoading = {
+                                                    imageLoading = true
+                                                    imageError = false
+                                                },
+                                                onSuccess = {
+                                                    imageLoading = false
+                                                    imageError = false
+                                                },
+                                                onError = {
+                                                    imageLoading = false
+                                                    imageError = true
+                                                },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .wrapContentHeight()
+                                                    .clip(RoundedCornerShape(12.dp))
+                                            )
+
+                                            if (imageLoading) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(200.dp),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                        CircularProgressIndicator(
+                                                            color = ElectricCyan,
+                                                            strokeWidth = 2.dp,
+                                                            modifier = Modifier.size(30.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.height(8.dp))
+                                                        Text(
+                                                            text = "Cargando imagen...",
+                                                            color = TextSecondaryDark,
+                                                            fontSize = 12.sp
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            if (imageError) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(160.dp),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = "No se pudo cargar la vista previa",
+                                                        color = RoseRed,
+                                                        fontSize = 12.sp
+                                                    )
+                                                }
+                                            }
+
+                                            // Botón guardar imagen directamente en la galería
+                                            Surface(
+                                                color = Color.Black.copy(alpha = 0.65f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                border = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.3f)),
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(8.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .clickable {
+                                                        scope.launch {
+                                                            Toast.makeText(context, "Guardando imagen...", Toast.LENGTH_SHORT).show()
+                                                            val ok = ImageDownloader.saveImageToDevice(context, imgUrl)
+                                                            if (ok) {
+                                                                Toast.makeText(context, "✅ Imagen guardada en la galería", Toast.LENGTH_SHORT).show()
+                                                            } else {
+                                                                Toast.makeText(context, "No se pudo guardar la imagen", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                    }
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.FileDownload,
+                                                        contentDescription = "Guardar",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = "Guardar",
+                                                        color = Color.White,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Message Text Body (Solo el texto descriptivo, sin enlaces ni códigos de imagen)
+                            if (displayContent.isNotBlank()) {
+                                if (message.isError) {
+                                    Text(
+                                        text = displayContent,
+                                        color = TextPrimaryDark,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp
+                                    )
+                                } else {
+                                    MarkdownContent(
+                                        text = displayContent,
+                                        textColor = TextPrimaryDark
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -375,15 +516,29 @@ fun ChatMessageBubble(
                                     }
                                 }
 
-                                // 📥 Descargar button (only if not an error)
-                                if (!message.isError && message.content.isNotBlank()) {
+                                // 📥 Descargar button (funciona tanto para imágenes como para documentos)
+                                if (!message.isError && (message.content.isNotBlank() || imageUrls.isNotEmpty())) {
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
                                         color = DeepIndigo.copy(alpha = 0.3f),
                                         border = androidx.compose.foundation.BorderStroke(1.dp, DeepIndigo.copy(alpha = 0.6f)),
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
-                                            .clickable { showExportSheet = true }
+                                            .clickable {
+                                                if (imageUrls.isNotEmpty() && displayContent.isBlank()) {
+                                                    scope.launch {
+                                                        Toast.makeText(context, "Guardando imagen...", Toast.LENGTH_SHORT).show()
+                                                        val ok = ImageDownloader.saveImageToDevice(context, imageUrls.first())
+                                                        if (ok) {
+                                                            Toast.makeText(context, "✅ Imagen guardada en la galería", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            Toast.makeText(context, "No se pudo guardar la imagen", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                                } else {
+                                                    showExportSheet = true
+                                                }
+                                            }
                                             .testTag("download_button_${message.id}")
                                     ) {
                                         Row(
@@ -454,7 +609,7 @@ fun ChatMessageBubble(
                                     }
                                 } else {
                                     IconButton(
-                                        onClick = { onSpeak(displayContent) },
+                                        onClick = { onToggleSpeak() },
                                         modifier = Modifier
                                             .size(32.dp)
                                             .testTag("speak_message_button_${message.id}")
@@ -575,6 +730,19 @@ fun ChatMessageBubble(
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
         ) {
             ExportFormatSelectorSheet(
+                hasImage = imageUrls.isNotEmpty(),
+                onDownloadImage = {
+                    showExportSheet = false
+                    scope.launch {
+                        Toast.makeText(context, "Guardando imagen...", Toast.LENGTH_SHORT).show()
+                        val ok = ImageDownloader.saveImageToDevice(context, imageUrls.first())
+                        if (ok) {
+                            Toast.makeText(context, "✅ Imagen guardada en la galería", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "No se pudo guardar la imagen", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
                 onSelectFormat = { format ->
                     showExportSheet = false
                     scope.launch {
@@ -628,6 +796,8 @@ fun ChatMessageBubble(
 
 @Composable
 fun ExportFormatSelectorSheet(
+    hasImage: Boolean = false,
+    onDownloadImage: (() -> Unit)? = null,
     onSelectFormat: (ExportFormat) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -644,7 +814,7 @@ fun ExportFormatSelectorSheet(
         ) {
             Column {
                 Text(
-                    text = "📥 Descargar Documento",
+                    text = "📥 Descargar",
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimaryDark,
                     fontWeight = FontWeight.Bold,
@@ -673,11 +843,63 @@ fun ExportFormatSelectorSheet(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 4 Options Grid/List
+        // Options List
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            if (hasImage && onDownloadImage != null) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onDownloadImage() }
+                        .border(1.dp, ElectricCyan.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                        .testTag("export_option_image"),
+                    color = ElectricCyan.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(ElectricCyan.copy(alpha = 0.2f))
+                                .border(1.dp, ElectricCyan.copy(alpha = 0.5f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Image,
+                                contentDescription = "Guardar Imagen",
+                                tint = ElectricCyan,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "🖼️ Guardar Imagen (Galería)",
+                                color = TextPrimaryDark,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Guardar imagen en alta resolución en tu dispositivo",
+                                color = TextSecondaryDark,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             ExportFormatOptionCard(
                 format = ExportFormat.PDF,
                 badgeColor = Color(0xFFEF4444), // Red for PDF

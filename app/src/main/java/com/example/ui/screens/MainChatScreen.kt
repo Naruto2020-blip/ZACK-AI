@@ -4,10 +4,13 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -203,7 +206,7 @@ fun MainChatScreen(
     DisposableEffect(Unit) {
         var localTts: TextToSpeech? = null
         try {
-            localTts = TextToSpeech(context.applicationContext) { status ->
+            localTts = TextToSpeech(context) { status ->
                 if (status == TextToSpeech.SUCCESS) {
                     configureTtsVoice(localTts, voiceGender, appLanguage)
                 }
@@ -211,12 +214,16 @@ fun MainChatScreen(
             localTts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {}
                 override fun onDone(utteranceId: String?) {
-                    if (utteranceId?.startsWith("final_") == true || utteranceId == speakingMessageId) {
-                        coroutineScope.launch { speakingMessageId = null }
+                    coroutineScope.launch(Dispatchers.Main) {
+                        if (utteranceId?.startsWith("final_") == true || utteranceId == speakingMessageId) {
+                            speakingMessageId = null
+                        }
                     }
                 }
                 override fun onError(utteranceId: String?) {
-                    coroutineScope.launch { speakingMessageId = null }
+                    coroutineScope.launch(Dispatchers.Main) {
+                        speakingMessageId = null
+                    }
                 }
             })
             tts = localTts
@@ -236,6 +243,46 @@ fun MainChatScreen(
         configureTtsVoice(tts, voiceGender, appLanguage)
     }
 
+    fun speakWithTts(targetTts: TextToSpeech, messageId: String, text: String) {
+        speakingMessageId = messageId
+        val maxLen = try {
+            TextToSpeech.getMaxSpeechInputLength().coerceAtMost(3000)
+        } catch (_: Exception) { 3000 }
+
+        if (text.length <= maxLen) {
+            val params = Bundle().apply {
+                putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, messageId)
+            }
+            targetTts.speak(text, TextToSpeech.QUEUE_FLUSH, params, messageId)
+        } else {
+            val sentences = text.split(Regex("(?<=[.!?\\n])\\s+"))
+            var currentChunk = StringBuilder()
+            val chunks = mutableListOf<String>()
+
+            for (s in sentences) {
+                if (currentChunk.length + s.length + 1 > maxLen) {
+                    if (currentChunk.isNotBlank()) chunks.add(currentChunk.toString().trim())
+                    currentChunk = StringBuilder(s)
+                } else {
+                    if (currentChunk.isNotEmpty()) currentChunk.append(" ")
+                    currentChunk.append(s)
+                }
+            }
+            if (currentChunk.isNotBlank()) {
+                chunks.add(currentChunk.toString().trim())
+            }
+
+            chunks.forEachIndexed { idx, chunk ->
+                val queueMode = if (idx == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                val chunkId = if (idx == chunks.lastIndex) "final_$messageId" else "${messageId}_$idx"
+                val params = Bundle().apply {
+                    putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, chunkId)
+                }
+                targetTts.speak(chunk, queueMode, params, chunkId)
+            }
+        }
+    }
+
     // Toggle Speak response in selected language without truncation (chunks for long text)
     fun toggleSpeak(messageId: String, content: String) {
         if (speakingMessageId == messageId) {
@@ -243,36 +290,29 @@ fun MainChatScreen(
             speakingMessageId = null
         } else {
             tts?.stop()
-            configureTtsVoice(tts, voiceGender, appLanguage)
+            speakingMessageId = null
             val cleanText = cleanMarkdownForSpeech(content)
-            speakingMessageId = messageId
+            if (cleanText.isBlank()) return
 
-            // Chunk text if needed so long answers are never cut off by TTS character limits
-            val maxLen = TextToSpeech.getMaxSpeechInputLength().coerceAtMost(3000)
-            if (cleanText.length <= maxLen) {
-                tts?.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, messageId)
+            val currentTts = tts
+            if (currentTts != null) {
+                configureTtsVoice(currentTts, voiceGender, appLanguage)
+                speakWithTts(currentTts, messageId, cleanText)
             } else {
-                val sentences = cleanText.split(Regex("(?<=[.!?\\n])\\s+"))
-                var currentChunk = StringBuilder()
-                val chunks = mutableListOf<String>()
-
-                for (s in sentences) {
-                    if (currentChunk.length + s.length + 1 > maxLen) {
-                        if (currentChunk.isNotBlank()) chunks.add(currentChunk.toString().trim())
-                        currentChunk = StringBuilder(s)
-                    } else {
-                        if (currentChunk.isNotEmpty()) currentChunk.append(" ")
-                        currentChunk.append(s)
+                try {
+                    val holder = arrayOfNulls<TextToSpeech>(1)
+                    val newTts = TextToSpeech(context) { status ->
+                        holder[0]?.let { instance ->
+                            if (status == TextToSpeech.SUCCESS) {
+                                configureTtsVoice(instance, voiceGender, appLanguage)
+                                speakWithTts(instance, messageId, cleanText)
+                            }
+                        }
                     }
-                }
-                if (currentChunk.isNotBlank()) {
-                    chunks.add(currentChunk.toString().trim())
-                }
-
-                chunks.forEachIndexed { idx, chunk ->
-                    val queueMode = if (idx == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-                    val chunkId = if (idx == chunks.lastIndex) "final_$messageId" else "${messageId}_$idx"
-                    tts?.speak(chunk, queueMode, null, chunkId)
+                    holder[0] = newTts
+                    tts = newTts
+                } catch (e: Exception) {
+                    speakingMessageId = null
                 }
             }
         }
@@ -841,10 +881,14 @@ fun MainChatScreen(
 private fun cleanMarkdownForSpeech(text: String): String {
     return text
         .replace(Regex("""```[\s\S]*?```"""), " Código omitido ")
-        .replace(Regex("""`([^`]+)`"""), "$1")
-        .replace(Regex("""[*#_~>]"""), "")
+        .replace(Regex("""!\[.*?\]\(.*?\)"""), "")
+        .replace(Regex("""<img[^>]*>"""), "")
         .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
         .replace(Regex("""https?://\S+"""), "")
+        .replace(Regex("""`([^`]+)`"""), "$1")
+        .replace(Regex("""[*#_~>]"""), "")
+        .replace(Regex("""<[^>]+>"""), "")
+        .replace(Regex("""\s+"""), " ")
         .trim()
 }
 
