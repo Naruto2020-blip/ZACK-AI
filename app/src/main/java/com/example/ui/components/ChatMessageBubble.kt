@@ -5,6 +5,13 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -83,7 +90,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatMessageBubble(
     message: ChatMessageEntity,
@@ -93,11 +100,14 @@ fun ChatMessageBubble(
     modifier: Modifier = Modifier,
     sessionTitle: String? = null,
     onToggleFavorite: (Long, Boolean) -> Unit = { _, _ -> },
-    onSendMessage: (String) -> Unit = {}
+    onSendMessage: (String) -> Unit = {},
+    onDeleteMessage: (Long) -> Unit = {}
 ) {
     val isUser = message.role == "user"
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    var showDeleteMenu by remember { mutableStateOf(false) }
     var isCopied by remember { mutableStateOf(false) }
     var showCascadeDetails by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
@@ -153,21 +163,30 @@ fun ChatMessageBubble(
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Surface(
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
-                    color = Color.Unspecified,
-                    modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(DeepIndigo, Color(0xFF4F46E5))
-                            ),
-                            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
-                        )
-                        .padding(14.dp)
-                ) {
-                    Column {
-                        SelectionContainer {
+                Box(contentAlignment = Alignment.TopEnd) {
+                    Surface(
+                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
+                        color = Color.Unspecified,
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp))
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(DeepIndigo, Color(0xFF4F46E5))
+                                ),
+                                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+                            )
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showDeleteMenu = true
+                                }
+                            )
+                            .padding(14.dp)
+                            .testTag("user_message_bubble_${message.id}")
+                    ) {
+                        Column {
                             Text(
                                 text = message.content,
                                 color = Color.White,
@@ -175,16 +194,23 @@ fun ChatMessageBubble(
                                 fontSize = 15.sp,
                                 lineHeight = 22.sp
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = formattedTime,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 11.sp,
+                                modifier = Modifier.align(Alignment.End)
+                            )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = formattedTime,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 11.sp,
-                            modifier = Modifier.align(Alignment.End)
-                        )
                     }
+
+                    MessageDeleteDropdown(
+                        expanded = showDeleteMenu,
+                        onDismiss = { showDeleteMenu = false },
+                        onDelete = { onDeleteMessage(message.id) },
+                        messageId = message.id
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -229,39 +255,51 @@ fun ChatMessageBubble(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                Card(
-                    shape = RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = ObsidianCard
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(
-                            width = 1.dp,
-                            color = if (message.isError) AmberGold.copy(alpha = 0.35f) else ObsidianCardBorder,
-                            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
-                        )
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.TopStart
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        // Top timestamp header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = formattedTime,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextSecondaryDark,
-                                fontSize = 11.sp
+                    Card(
+                        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = ObsidianCard
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(
+                                width = 1.dp,
+                                color = if (message.isError) AmberGold.copy(alpha = 0.35f) else ObsidianCardBorder,
+                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
                             )
-                        }
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp))
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showDeleteMenu = true
+                                }
+                            )
+                            .testTag("ai_message_card_${message.id}")
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            // Top timestamp header
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = formattedTime,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextSecondaryDark,
+                                    fontSize = 11.sp
+                                )
+                            }
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
 
-                        // Message Text Body
-                        if (message.isError) {
-                            SelectionContainer {
+                            // Message Text Body
+                            if (message.isError) {
                                 Text(
                                     text = message.content,
                                     color = TextPrimaryDark,
@@ -269,17 +307,14 @@ fun ChatMessageBubble(
                                     fontSize = 14.sp,
                                     lineHeight = 20.sp
                                 )
-                            }
-                        } else {
-                            SelectionContainer {
+                            } else {
                                 MarkdownContent(
                                     text = displayContent,
                                     textColor = TextPrimaryDark
                                 )
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                         // Bottom Actions Bar (Date/Time 12h, Download Button, Copy & Read Aloud)
                         Row(
@@ -501,6 +536,13 @@ fun ChatMessageBubble(
                             }
                         }
                     }
+
+                    MessageDeleteDropdown(
+                        expanded = showDeleteMenu,
+                        onDismiss = { showDeleteMenu = false },
+                        onDelete = { onDeleteMessage(message.id) },
+                        messageId = message.id
+                    )
                 }
             }
         }
@@ -580,6 +622,7 @@ fun ChatMessageBubble(
             }
         )
     }
+}
 }
 
 @Composable
@@ -746,3 +789,55 @@ fun ExportFormatOptionCard(
         }
     }
 }
+
+@Composable
+private fun MessageDeleteDropdown(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit,
+    messageId: Long
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        modifier = Modifier
+            .background(
+                color = if (isAppDark()) Color(0xFF1E2433) else Color(0xFFFFFFFF),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(
+                1.dp,
+                if (isAppDark()) Color(0xFF374151) else Color(0xFFE5E7EB),
+                RoundedCornerShape(12.dp)
+            )
+            .testTag("delete_dropdown_menu_$messageId")
+    ) {
+        DropdownMenuItem(
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Eliminar",
+                        tint = RoseRed,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Eliminar",
+                        color = RoseRed,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                }
+            },
+            onClick = {
+                onDismiss()
+                onDelete()
+            },
+            modifier = Modifier.testTag("delete_menu_item_$messageId")
+        )
+    }
+}
+

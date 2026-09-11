@@ -558,6 +558,13 @@ fun MainChatScreen(
                                     },
                                     onSendMessage = { prompt ->
                                         viewModel.sendMessage(prompt)
+                                    },
+                                    onDeleteMessage = { id ->
+                                        if (speakingMessageId == id.toString()) {
+                                            tts?.stop()
+                                            speakingMessageId = null
+                                        }
+                                        viewModel.deleteMessage(id)
                                     }
                                 )
                             }

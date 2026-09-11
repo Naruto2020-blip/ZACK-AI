@@ -710,6 +710,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun deleteMessage(messageId: Long) {
+        _uiState.value = _uiState.value.copy(
+            messages = _uiState.value.messages.filter { it.id != messageId }
+        )
+        viewModelScope.launch {
+            repository.deleteMessage(messageId)
+        }
+    }
+
     fun setSearchQuery(query: String) {
         searchQuery.value = query
     }

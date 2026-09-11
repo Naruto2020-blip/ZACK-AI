@@ -99,6 +99,10 @@ class ChatRepository(private val chatDao: ChatDao) {
         chatDao.deleteSessionById(sessionId)
     }
 
+    suspend fun deleteMessage(messageId: Long) {
+        chatDao.deleteMessageById(messageId)
+    }
+
     suspend fun clearAll() {
         chatDao.clearAllMessages()
         chatDao.clearAllSessions()
