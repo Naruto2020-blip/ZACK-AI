@@ -55,6 +55,10 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.GeminiModelSpec
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.ChatUiState
+import com.example.util.AppStrings
+import com.example.util.LocalAppLanguage
+import com.example.util.LocalAppStrings
+import com.example.util.SUPPORTED_LANGUAGES
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,10 +70,13 @@ fun SettingsSheet(
     currentThemeMode: String = "dark",
     onSetThemeMode: (String) -> Unit = {},
     currentVoiceGender: String = "female",
-    onSetVoiceGender: (String) -> Unit = {}
+    onSetVoiceGender: (String) -> Unit = {},
+    currentLanguage: String = LocalAppLanguage.current,
+    onSetLanguage: (String) -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = androidx.compose.ui.platform.LocalContext.current
+    val strings = LocalAppStrings.current
     var apiKeyInput by androidx.compose.runtime.remember(uiState.currentApiKey) {
         androidx.compose.runtime.mutableStateOf(uiState.currentApiKey)
     }
@@ -117,13 +124,13 @@ fun SettingsSheet(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Ajustes",
+                            text = strings.settingsTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimaryDark
                         )
                         Text(
-                            text = "Configuración del Asistente",
+                            text = strings.settingsSubtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = CyanAccent,
                             fontSize = 12.sp
@@ -137,13 +144,102 @@ fun SettingsSheet(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Cerrar",
+                        contentDescription = strings.close,
                         tint = TextSecondaryDark
                     )
                 }
             }
 
             HorizontalDivider(color = ObsidianCardBorder, modifier = Modifier.padding(bottom = 16.dp))
+
+            // =========================================================================
+            // 🌐 IDIOMA / LANGUAGE
+            // =========================================================================
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(14.dp),
+                color = ObsidianCard
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🌐",
+                            fontSize = 18.sp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = strings.languageSection,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimaryDark
+                        )
+                    }
+                    Text(
+                        text = strings.languageSubtitle,
+                        color = TextSecondaryDark,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                    )
+
+                    val chunked = SUPPORTED_LANGUAGES.chunked(2)
+                    chunked.forEachIndexed { index, rowItems ->
+                        if (index > 0) Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowItems.forEach { lang ->
+                                val isSelected = currentLanguage == lang.code
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable { onSetLanguage(lang.code) }
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) ElectricCyan else ObsidianCardBorder,
+                                            shape = RoundedCornerShape(10.dp)
+                                        )
+                                        .testTag("language_option_${lang.code}"),
+                                    color = if (isSelected) ElectricCyan.copy(alpha = 0.15f) else if (isAppDark()) Color(0xFF0F172A) else ObsidianSubtle,
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(text = lang.flag, fontSize = 18.sp)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = lang.name,
+                                                fontSize = 13.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) ElectricCyan else TextPrimaryDark
+                                            )
+                                        }
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = ElectricCyan,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // =========================================================================
             // 🤖 BOTÓN: MODELOS (Abre pantalla nueva de Modelos)
@@ -186,13 +282,13 @@ fun SettingsSheet(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Modelos",
+                                text = strings.modelsButton,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimaryDark
                             )
                             Text(
-                                text = "Ver créditos, cuotas y modelos de respaldo",
+                                text = strings.modelsSubtitle,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondaryDark,
                                 fontSize = 12.sp
@@ -223,13 +319,13 @@ fun SettingsSheet(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "🌙 Modo de Apariencia",
+                        text = "🌙 " + strings.appearanceSection,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimaryDark
                     )
                     Text(
-                        text = "Selecciona el tema visual de la aplicación. Se guarda automáticamente.",
+                        text = strings.appearanceSubtitle,
                         color = TextSecondaryDark,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
@@ -240,9 +336,9 @@ fun SettingsSheet(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         val themeOptions = listOf(
-                            Triple("dark", "Modo Oscuro", "🌙"),
-                            Triple("light", "Modo Claro", "☀️"),
-                            Triple("system", "Sistema", "📱")
+                            Triple("dark", strings.darkMode, "🌙"),
+                            Triple("light", strings.lightMode, "☀️"),
+                            Triple("system", strings.systemMode, "📱")
                         )
 
                         themeOptions.forEach { (mode, label, emoji) ->
@@ -294,13 +390,13 @@ fun SettingsSheet(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "🔊 Tipo de Voz (Lectura)",
+                        text = "🔊 " + strings.voiceTypeSection,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimaryDark
                     )
                     Text(
-                        text = "Elige si prefieres escuchar las respuestas con voz femenina o masculina. La velocidad se mantiene en Normal.",
+                        text = strings.voiceTypeSubtitle,
                         color = TextSecondaryDark,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
@@ -311,8 +407,8 @@ fun SettingsSheet(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         val voiceOptions = listOf(
-                            Triple("female", "Voz Femenina", "👩"),
-                            Triple("male", "Voz Masculina", "👨")
+                            Triple("female", strings.femaleVoice, "👩"),
+                            Triple("male", strings.maleVoice, "👨")
                         )
 
                         voiceOptions.forEach { (gender, label, emoji) ->
@@ -382,13 +478,13 @@ fun SettingsSheet(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Renovación Diaria de Cuotas",
+                                text = strings.dailyQuotaTitle,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimaryDark
                             )
                             Text(
-                                text = "Restablecimiento automático cada 24h (Medianoche Costa Rica, UTC-6)",
+                                text = strings.dailyQuotaSubtitle,
                                 color = TextSecondaryDark,
                                 fontSize = 11.sp
                             )
@@ -470,13 +566,13 @@ fun SettingsSheet(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "API Key de Google Gemini",
+                                    text = strings.apiKeyTitle,
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimaryDark
                                 )
                                 Text(
-                                    text = if (uiState.isApiKeyConfigured) "● Clave activa y enlazada" else "○ Clave no configurada",
+                                    text = if (uiState.isApiKeyConfigured) "● Active" else "○ Inactive",
                                     color = if (uiState.isApiKeyConfigured) EmeraldGreen else Color(0xFFEF4444),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
@@ -488,7 +584,7 @@ fun SettingsSheet(
                             onClick = { showApiKeyInput = !showApiKeyInput }
                         ) {
                             Text(
-                                text = if (showApiKeyInput) "Ocultar" else "Editar / Probar Clave",
+                                text = if (showApiKeyInput) strings.close else "API Key",
                                 color = CyanAccent,
                                 fontSize = 12.sp
                             )
@@ -503,7 +599,7 @@ fun SettingsSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("custom_api_key_field"),
-                            placeholder = { Text("Pega tu API Key de AI Studio...", color = TextSecondaryDark, fontSize = 13.sp) },
+                            placeholder = { Text(strings.apiKeyPlaceholder, color = TextSecondaryDark, fontSize = 13.sp) },
                             singleLine = true,
                             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = ElectricCyan,
@@ -527,7 +623,7 @@ fun SettingsSheet(
                                     contentColor = Color(0xFF090D16)
                                 )
                             ) {
-                                Text("Guardar Clave", fontWeight = FontWeight.Bold)
+                                Text(strings.saveApiKey, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

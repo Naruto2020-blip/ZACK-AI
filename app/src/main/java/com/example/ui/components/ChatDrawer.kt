@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ChatSessionEntity
 import com.example.ui.theme.*
+import com.example.util.LocalAppStrings
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -95,6 +96,7 @@ fun ChatDrawerContent(
     onOpenWebBrowser: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalAppStrings.current
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
     var sessionToDelete by remember { mutableStateOf<ChatSessionEntity?>(null) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
@@ -119,7 +121,7 @@ fun ChatDrawerContent(
             onDismissRequest = { sessionToDelete = null },
             title = {
                 Text(
-                    text = "¿Eliminar esta conversación?",
+                    text = strings.deleteChatDialogTitle,
                     color = TextPrimaryDark,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
@@ -127,7 +129,7 @@ fun ChatDrawerContent(
             },
             text = {
                 Text(
-                    text = "Esta acción no se puede deshacer.",
+                    text = strings.deleteChatConfirm,
                     color = TextSecondaryDark,
                     fontSize = 13.sp
                 )
@@ -143,7 +145,7 @@ fun ChatDrawerContent(
                     },
                     modifier = Modifier.testTag("confirm_delete_button")
                 ) {
-                    Text("Sí", color = RoseRed, fontWeight = FontWeight.Bold)
+                    Text(strings.yes, color = RoseRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -151,7 +153,7 @@ fun ChatDrawerContent(
                     onClick = { sessionToDelete = null },
                     modifier = Modifier.testTag("cancel_delete_button")
                 ) {
-                    Text("Cancelar", color = TextSecondaryDark)
+                    Text(strings.cancel, color = TextSecondaryDark)
                 }
             },
             containerColor = ObsidianCard,
@@ -165,7 +167,7 @@ fun ChatDrawerContent(
             onDismissRequest = { showClearAllConfirm = false },
             title = {
                 Text(
-                    text = "¿Borrar todo el historial?",
+                    text = strings.clearAllChatsDialogTitle,
                     color = TextPrimaryDark,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
@@ -173,7 +175,7 @@ fun ChatDrawerContent(
             },
             text = {
                 Text(
-                    text = "Se eliminarán todas tus conversaciones guardadas. Esta acción no se puede deshacer.",
+                    text = strings.clearAllChatsConfirm,
                     color = TextSecondaryDark,
                     fontSize = 13.sp
                 )
@@ -185,12 +187,12 @@ fun ChatDrawerContent(
                         onClearAll()
                     }
                 ) {
-                    Text("Borrar todo", color = RoseRed, fontWeight = FontWeight.Bold)
+                    Text(strings.clearAllChatsConfirmBtn, color = RoseRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearAllConfirm = false }) {
-                    Text("Cancelar", color = TextSecondaryDark)
+                    Text(strings.cancel, color = TextSecondaryDark)
                 }
             },
             containerColor = ObsidianCard,
@@ -263,7 +265,7 @@ fun ChatDrawerContent(
                 tint = Color.White
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Nueva Conversación", color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(strings.newChat, color = Color.White, fontWeight = FontWeight.SemiBold)
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -294,7 +296,7 @@ fun ChatDrawerContent(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = "Modos",
+                            text = strings.modes,
                             color = TextPrimaryDark,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -316,7 +318,7 @@ fun ChatDrawerContent(
                     border = BorderStroke(0.5.dp, RadiantViolet.copy(alpha = 0.5f))
                 ) {
                     Text(
-                        text = "Cambiar",
+                        text = strings.changeMode,
                         color = RadiantViolet,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -360,7 +362,7 @@ fun ChatDrawerContent(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "HERRAMIENTAS",
+                            text = strings.toolsHeader,
                             style = MaterialTheme.typography.labelSmall,
                             color = ElectricCyan,
                             fontWeight = FontWeight.Bold,
@@ -370,7 +372,7 @@ fun ChatDrawerContent(
                     }
                     Icon(
                         imageVector = if (isToolsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (isToolsExpanded) "Cerrar Herramientas" else "Abrir Herramientas",
+                        contentDescription = if (isToolsExpanded) strings.close else strings.toolsHeader,
                         tint = ElectricCyan,
                         modifier = Modifier.size(18.dp)
                     )
@@ -407,13 +409,13 @@ fun ChatDrawerContent(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AutoFixHigh,
-                                contentDescription = "Herramientas de Documentos",
+                                contentDescription = strings.docTools,
                                 tint = ElectricCyan,
                                 modifier = Modifier.size(17.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Herramientas de Documentos",
+                                text = strings.docTools,
                                 color = TextPrimaryDark,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
@@ -442,13 +444,13 @@ fun ChatDrawerContent(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Default.Language,
-                                    contentDescription = "Navegador Web",
+                                    contentDescription = strings.webBrowser,
                                     tint = ElectricCyan,
                                     modifier = Modifier.size(17.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(
-                                    text = "Navegador Web",
+                                    text = strings.webBrowser,
                                     color = TextPrimaryDark,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
@@ -491,13 +493,13 @@ fun ChatDrawerContent(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = "Cámara en Tiempo Real",
+                                    contentDescription = strings.cameraLens,
                                     tint = ElectricCyan,
                                     modifier = Modifier.size(17.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(
-                                    text = "Cámara en Tiempo Real",
+                                    text = strings.cameraLens,
                                     color = TextPrimaryDark,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
@@ -540,13 +542,13 @@ fun ChatDrawerContent(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Default.ShoppingCart,
-                                    contentDescription = "Lista de Compras",
+                                    contentDescription = strings.shoppingList,
                                     tint = AmberGold,
                                     modifier = Modifier.size(17.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(
-                                    text = "Lista de Compras",
+                                    text = strings.shoppingList,
                                     color = TextPrimaryDark,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
@@ -588,13 +590,13 @@ fun ChatDrawerContent(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.NotificationsActive,
-                                contentDescription = "Recordatorios y Tareas",
+                                contentDescription = strings.tasks,
                                 tint = EmeraldGreen,
                                 modifier = Modifier.size(17.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Recordatorios y Tareas",
+                                text = strings.tasks,
                                 color = TextPrimaryDark,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
@@ -617,7 +619,7 @@ fun ChatDrawerContent(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No hay conversaciones",
+                        text = strings.noChats,
                         color = TextSecondaryDark,
                         fontSize = 13.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -683,7 +685,7 @@ fun ChatDrawerContent(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.DeleteOutline,
-                                        contentDescription = "Eliminar chat",
+                                        contentDescription = strings.delete,
                                         tint = TextSecondaryDark,
                                         modifier = Modifier.size(15.dp)
                                     )
@@ -708,7 +710,7 @@ fun ChatDrawerContent(
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Borrar todo el historial", color = RoseRed, fontSize = 11.sp)
+                    Text(strings.clearHistory, color = RoseRed, fontSize = 11.sp)
                 }
             }
         }
@@ -732,7 +734,7 @@ fun ChatDrawerContent(
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
-                    contentDescription = "Ajustes",
+                    contentDescription = strings.settingsTitle,
                     tint = CyanAccent,
                     modifier = Modifier.size(22.dp)
                 )

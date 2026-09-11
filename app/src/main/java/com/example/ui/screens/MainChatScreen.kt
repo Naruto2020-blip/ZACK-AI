@@ -101,6 +101,8 @@ import com.example.ui.components.WebBrowserSheet
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.ChatViewModel
 import com.example.util.AudioRecordManager
+import com.example.util.LocalAppLanguage
+import com.example.util.LocalAppStrings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -119,6 +121,8 @@ fun MainChatScreen(
     val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
     val shoppingList by viewModel.shoppingList.collectAsStateWithLifecycle()
     val voiceGender by viewModel.voiceGender.collectAsStateWithLifecycle()
+    val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
+    val strings = LocalAppStrings.current
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -140,12 +144,19 @@ fun MainChatScreen(
     var tts: TextToSpeech? by remember { mutableStateOf(null) }
 
     // Helper to apply language, voice gender, and pitch
-    fun configureTtsVoice(t: TextToSpeech?, gender: String) {
+    fun configureTtsVoice(t: TextToSpeech?, gender: String, lang: String = appLanguage) {
         if (t == null) return
-        val latinoLocale = Locale("es", "MX")
-        val langResult = t.setLanguage(latinoLocale)
+        val targetLocale = when (lang) {
+            "en" -> Locale.US
+            "fr" -> Locale.FRANCE
+            "pt" -> Locale("pt", "BR")
+            "de" -> Locale.GERMANY
+            "it" -> Locale.ITALY
+            else -> Locale("es", "MX")
+        }
+        val langResult = t.setLanguage(targetLocale)
         if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-            t.language = Locale("es")
+            t.language = Locale(targetLocale.language)
         }
 
         // Fixed normal speed (1.0f)
@@ -156,20 +167,21 @@ fun MainChatScreen(
         try {
             val availableVoices = t.voices
             if (!availableVoices.isNullOrEmpty()) {
+                val targetLang = targetLocale.language
                 val matchingVoice = availableVoices.firstOrNull { v ->
-                    val isSpanish = v.locale.language == "es"
+                    val isTargetLang = v.locale.language == targetLang
                     val nameLower = v.name.lowercase()
                     if (gender == "male") {
-                        isSpanish && (nameLower.contains("male") || nameLower.contains("hombre") || nameLower.contains("man") || nameLower.contains("masc"))
+                        isTargetLang && (nameLower.contains("male") || nameLower.contains("hombre") || nameLower.contains("man") || nameLower.contains("masc"))
                     } else {
-                        isSpanish && (nameLower.contains("female") || nameLower.contains("mujer") || nameLower.contains("fem"))
+                        isTargetLang && (nameLower.contains("female") || nameLower.contains("mujer") || nameLower.contains("fem"))
                     }
                 } ?: availableVoices.firstOrNull { v ->
-                    val isSpanish = v.locale.language == "es"
+                    val isTargetLang = v.locale.language == targetLang
                     if (gender == "male") {
-                        isSpanish && !v.name.lowercase().contains("female")
+                        isTargetLang && !v.name.lowercase().contains("female")
                     } else {
-                        isSpanish && !v.name.lowercase().contains("male")
+                        isTargetLang && !v.name.lowercase().contains("male")
                     }
                 }
 
@@ -193,7 +205,7 @@ fun MainChatScreen(
         try {
             localTts = TextToSpeech(context.applicationContext) { status ->
                 if (status == TextToSpeech.SUCCESS) {
-                    configureTtsVoice(localTts, voiceGender)
+                    configureTtsVoice(localTts, voiceGender, appLanguage)
                 }
             }
             localTts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -219,19 +231,19 @@ fun MainChatScreen(
         }
     }
 
-    // React to voice gender preference changes
-    LaunchedEffect(voiceGender, tts) {
-        configureTtsVoice(tts, voiceGender)
+    // React to voice gender and language preference changes
+    LaunchedEffect(voiceGender, appLanguage, tts) {
+        configureTtsVoice(tts, voiceGender, appLanguage)
     }
 
-    // Toggle Speak response in clear Latin Spanish without truncation (chunks for long text)
+    // Toggle Speak response in selected language without truncation (chunks for long text)
     fun toggleSpeak(messageId: String, content: String) {
         if (speakingMessageId == messageId) {
             tts?.stop()
             speakingMessageId = null
         } else {
             tts?.stop()
-            configureTtsVoice(tts, voiceGender)
+            configureTtsVoice(tts, voiceGender, appLanguage)
             val cleanText = cleanMarkdownForSpeech(content)
             speakingMessageId = messageId
 
@@ -491,7 +503,7 @@ fun MainChatScreen(
                                         modifier = Modifier.clickable { viewModel.acceptProactiveSuggestion() }
                                     ) {
                                         Text(
-                                            text = "Sí, por favor",
+                                            text = strings.yes,
                                             color = DarkBackground,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
@@ -499,7 +511,7 @@ fun MainChatScreen(
                                         )
                                     }
                                     Text(
-                                        text = "Ahora no",
+                                        text = strings.notNow,
                                         color = TextSecondaryDark,
                                         fontSize = 11.sp,
                                         modifier = Modifier
@@ -514,7 +526,7 @@ fun MainChatScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Cerrar",
+                                    contentDescription = strings.close,
                                     tint = TextSecondaryDark,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -633,7 +645,7 @@ fun MainChatScreen(
                                 modifier = Modifier.height(32.dp)
                             ) {
                                 Text(
-                                    text = "Recordármelo",
+                                    text = strings.remindMe,
                                     color = DarkBackground,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
@@ -645,7 +657,7 @@ fun MainChatScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Ignorar",
+                                    contentDescription = strings.ignore,
                                     tint = TextSecondaryDark,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -668,8 +680,16 @@ fun MainChatScreen(
                     onVoiceRecord = {
                         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
-                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Habla ahora...")
+                            val speechLang = when (appLanguage) {
+                                "en" -> "en-US"
+                                "fr" -> "fr-FR"
+                                "pt" -> "pt-BR"
+                                "de" -> "de-DE"
+                                "it" -> "it-IT"
+                                else -> "es-ES"
+                            }
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, speechLang)
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, strings.speechPrompt)
                         }
                         try {
                             speechLauncher.launch(intent)
@@ -715,6 +735,10 @@ fun MainChatScreen(
             currentVoiceGender = voiceGender,
             onSetVoiceGender = { gender ->
                 viewModel.setVoiceGender(gender)
+            },
+            currentLanguage = appLanguage,
+            onSetLanguage = { lang ->
+                viewModel.setAppLanguage(lang)
             }
         )
     }
@@ -834,6 +858,7 @@ fun ChatTopBar(
     shoppingItemCount: Int = 0,
     onCameraLensClick: () -> Unit = {}
 ) {
+    val strings = LocalAppStrings.current
     Surface(
         color = ObsidianBackground,
         border = androidx.compose.foundation.BorderStroke(0.5.dp, ObsidianCardBorder),
@@ -853,7 +878,7 @@ fun ChatTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Menu,
-                        contentDescription = "Menú",
+                        contentDescription = strings.menu,
                         tint = TextPrimaryDark
                     )
                 }
@@ -891,7 +916,7 @@ fun ChatTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.CameraAlt,
-                        contentDescription = "Cámara en Tiempo Real",
+                        contentDescription = strings.cameraLens,
                         tint = ElectricCyan
                     )
                 }
@@ -904,7 +929,7 @@ fun ChatTopBar(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.ShoppingCart,
-                            contentDescription = "Lista de Compras",
+                            contentDescription = strings.shoppingList,
                             tint = AmberGold
                         )
                         if (shoppingItemCount > 0) {
@@ -933,7 +958,7 @@ fun ChatTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.AutoFixHigh,
-                        contentDescription = "Herramientas de Documentos",
+                        contentDescription = strings.docTools,
                         tint = ElectricCyan
                     )
                 }
@@ -944,7 +969,7 @@ fun ChatTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Nuevo Chat",
+                        contentDescription = strings.newChat,
                         tint = ElectricCyan
                     )
                 }
@@ -958,41 +983,86 @@ fun EmptyChatState(
     currentPersona: String = "",
     onSuggestionSelected: (String) -> Unit
 ) {
-    val suggestions = remember(currentPersona) {
+    val strings = LocalAppStrings.current
+    val currentLang = LocalAppLanguage.current
+    val suggestions = remember(currentPersona, currentLang) {
         when {
-            currentPersona.contains("Profesor", ignoreCase = true) -> listOf(
-                "📝 Hazme un examen de Historia Universal, nivel secundaria",
-                "🧪 Hazme un examen de Biología Celular, nivel bachillerato",
-                "📐 Explica el teorema de Pitágoras paso a paso con ejemplos",
-                "📚 Guía de estudio y ejercicios para preparar mi examen de matemáticas"
-            )
-            currentPersona.contains("Trabajador", ignoreCase = true) ||
-                    currentPersona.contains("RRHH", ignoreCase = true) ||
-                    currentPersona.contains("Recursos", ignoreCase = true) -> listOf(
-                "📄 Ayúdame a armar mi Currículum Vitae profesional",
-                "✉️ Redactar una carta de renuncia formal con preaviso",
-                "💼 Redactar una carta de presentación para postularme a un empleo",
-                "🎯 Prepárame para una entrevista de trabajo con preguntas y respuestas"
-            )
-            currentPersona.contains("Técnico", ignoreCase = true) ||
-                    currentPersona.contains("Soporte", ignoreCase = true) -> listOf(
-                "🛠️ Mi celular se calienta rápido y se descarga, ¿cómo solucionarlo?",
-                "📶 Pasos para solucionar problemas de conexión WiFi en mi computadora",
-                "📱 ¿Cómo liberar espacio de almacenamiento sin borrar fotos importantes?",
-                "💻 Mi computadora está muy lenta, ¿qué configuraciones puedo ajustar?"
-            )
-            currentPersona.contains("Financiero", ignoreCase = true) -> listOf(
-                "💰 Ayúdame a organizar un presupuesto mensual para mi hogar",
-                "📉 Estrategia práctica para reducir gastos hormiga y ahorrar este mes",
-                "📊 ¿Cómo distribuir mis ingresos con la regla 50/30/20?",
-                "💳 Consejos para salir de deudas de tarjetas de crédito paso a paso"
-            )
-            else -> listOf(
-                "🛒 Crear Lista de Compras organizada por categorías",
-                "⚡ Explica un concepto complejo en términos sencillos",
-                "💻 Escribe una función Kotlin limpia para ordenar colecciones",
-                "✍️ Redacta un correo profesional solicitando una reunión de estrategia"
-            )
+            currentPersona.contains("Profesor", ignoreCase = true) || currentPersona.contains("Teacher", ignoreCase = true) -> when (currentLang) {
+                "en" -> listOf(
+                    "📝 Create a World History quiz, high school level",
+                    "🧪 Create a Cell Biology quiz, college level",
+                    "📐 Explain the Pythagorean theorem step by step with examples",
+                    "📚 Study guide and practice problems for math exam"
+                )
+                "fr" -> listOf(
+                    "📝 Créez un quiz d'histoire universelle, niveau secondaire",
+                    "🧪 Créez un quiz de biologie cellulaire",
+                    "📐 Expliquez le théorème de Pythagore étape par étape",
+                    "📚 Guide d'étude et exercices pour préparer un examen de maths"
+                )
+                "pt" -> listOf(
+                    "📝 Crie um teste de História Geral, nível médio",
+                    "🧪 Crie um teste de Biologia Celular",
+                    "📐 Explique o teorema de Pitágoras passo a passo com exemplos",
+                    "📚 Guia de estudos e exercícios de matemática"
+                )
+                "de" -> listOf(
+                    "📝 Erstelle ein Weltgeschichte-Quiz",
+                    "🧪 Erstelle ein Zellbiologie-Quiz",
+                    "📐 Erkläre den Satz des Pythagoras Schritt für Schritt",
+                    "📚 Lernleitfaden und Übungen für die Matheprüfung"
+                )
+                "it" -> listOf(
+                    "📝 Crea un quiz di Storia Universale",
+                    "🧪 Crea un quiz di Biologia Cellulare",
+                    "📐 Spiega il teorema di Pitagora passo dopo passo",
+                    "📚 Guida allo studio ed esercizi di matematica"
+                )
+                else -> listOf(
+                    "📝 Hazme un examen de Historia Universal, nivel secundaria",
+                    "🧪 Hazme un examen de Biología Celular, nivel bachillerato",
+                    "📐 Explica el teorema de Pitágoras paso a paso con ejemplos",
+                    "📚 Guía de estudio y ejercicios para preparar mi examen de matemáticas"
+                )
+            }
+            else -> when (currentLang) {
+                "en" -> listOf(
+                    "🛒 Create a shopping list organized by category",
+                    "⚡ Explain a complex concept in simple terms",
+                    "💻 Write a clean Kotlin function to sort collections",
+                    "✍️ Draft a professional email requesting a strategy meeting"
+                )
+                "fr" -> listOf(
+                    "🛒 Créer une liste de courses organisée par catégories",
+                    "⚡ Expliquer un concept complexe en termes simples",
+                    "💻 Écrire une fonction Kotlin propre pour trier des collections",
+                    "✍️ Rédiger un email professionnel pour demander une réunion"
+                )
+                "pt" -> listOf(
+                    "🛒 Criar uma lista de compras organizada por categorias",
+                    "⚡ Explicar um conceito complexo em termos simples",
+                    "💻 Escrever uma função Kotlin limpa para ordenar coleções",
+                    "✍️ Escrever um e-mail profissional solicitando uma reunião"
+                )
+                "de" -> listOf(
+                    "🛒 Erstelle eine nach Kategorien geordnete Einkaufsliste",
+                    "⚡ Erkläre ein komplexes Konzept in einfachen Worten",
+                    "💻 Schreibe eine saubere Kotlin-Funktion zum Sortieren",
+                    "✍️ Verfasse eine professionelle E-Mail für ein Meeting"
+                )
+                "it" -> listOf(
+                    "🛒 Crea una lista della spesa organizzata per categorie",
+                    "⚡ Spiega un concetto complesso in parole semplici",
+                    "💻 Scrivi una funzione Kotlin pulita per ordinare collezioni",
+                    "✍️ Scrivi un'email professionale per richiedere una riunione"
+                )
+                else -> listOf(
+                    "🛒 Crear Lista de Compras organizada por categorías",
+                    "⚡ Explica un concepto complejo en términos sencillos",
+                    "💻 Escribe una función Kotlin limpia para ordenar colecciones",
+                    "✍️ Redacta un correo profesional solicitando una reunión de estrategia"
+                )
+            }
         }
     }
 
@@ -1023,7 +1093,7 @@ fun EmptyChatState(
 
         // Suggestions Title
         Text(
-            text = "Sugerencias de inicio rápido:",
+            text = strings.quickSuggestions,
             style = MaterialTheme.typography.labelMedium,
             color = TextSecondaryDark,
             fontWeight = FontWeight.SemiBold
@@ -1117,6 +1187,7 @@ fun ChatInputBar(
     onCancelAudioRecord: () -> Unit = {},
     onSendAudioRecord: () -> Unit = {}
 ) {
+    val strings = LocalAppStrings.current
     Surface(
         color = ObsidianBackground,
         border = androidx.compose.foundation.BorderStroke(0.5.dp, ObsidianCardBorder),
@@ -1142,7 +1213,7 @@ fun ChatInputBar(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Grabando voz...",
+                        text = strings.recordingVoice,
                         color = Color.White,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
@@ -1181,7 +1252,7 @@ fun ChatInputBar(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Cancelar grabación",
+                                contentDescription = strings.cancelRecording,
                                 tint = Color.White,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -1204,13 +1275,13 @@ fun ChatInputBar(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Enviar audio original",
+                                contentDescription = strings.sendAudio,
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Enviar Audio",
+                                text = strings.sendAudio,
                                 color = Color.White,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
@@ -1243,7 +1314,7 @@ fun ChatInputBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
-                        contentDescription = "Dictar texto",
+                        contentDescription = strings.dictate,
                         tint = ElectricCyan,
                         modifier = Modifier.size(22.dp)
                     )
@@ -1258,7 +1329,7 @@ fun ChatInputBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.RecordVoiceOver,
-                        contentDescription = "Enviar pregunta en voz original",
+                        contentDescription = strings.sendAudio,
                         tint = Color(0xFFF472B6),
                         modifier = Modifier.size(22.dp)
                     )
@@ -1272,7 +1343,7 @@ fun ChatInputBar(
                     onValueChange = onTextChanged,
                     placeholder = {
                         Text(
-                            text = "Escribe o sube PDF, Word, Excel, PPT...",
+                            text = strings.chatPlaceholder,
                             color = TextSecondaryDark,
                             fontSize = 13.sp
                         )
@@ -1328,7 +1399,7 @@ fun ChatInputBar(
                     } else {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Enviar",
+                            contentDescription = strings.send,
                             tint = if (inputText.isNotBlank()) Color.White else TextSecondaryDark,
                             modifier = Modifier.size(20.dp)
                         )

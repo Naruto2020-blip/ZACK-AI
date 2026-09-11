@@ -83,6 +83,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _voiceGender = MutableStateFlow(prefs.getString("voice_gender", "female") ?: "female")
     val voiceGender: StateFlow<String> = _voiceGender.asStateFlow()
 
+    private val _appLanguage = MutableStateFlow(prefs.getString("app_language", "es") ?: "es")
+    val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
+
     private val _shoppingItems = MutableStateFlow<List<ShoppingItem>>(loadShoppingList())
     val shoppingList: StateFlow<List<ShoppingItem>> = _shoppingItems.asStateFlow()
 
@@ -231,7 +234,47 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         - Anticipa necesidades: si se acerca una fecha importante o se agota algo que use seguido, avisa con tiempo.
         - No seas insistente: si el usuario no pide recordatorio o ignora una sugerencia, reduce la frecuencia y no repitas la pregunta.
         """.trimIndent()
-        return if (basePersona.isNotBlank()) "$basePersona\n$documentRule" else documentRule
+        val langCode = _appLanguage.value
+        val languagePromptDirective = when (langCode) {
+            "en" -> """
+            🌐 MANDATORY RESPONSE LANGUAGE: ENGLISH
+            - The application and user interface language is configured in ENGLISH.
+            - You MUST formulate ALL your responses, explanations, reasoning, calculations, code comments, and conversational dialogue strictly and naturally in ENGLISH.
+            - Do NOT reply in Spanish or any other language unless the user specifically and explicitly requests a translation or another language.
+            """.trimIndent()
+            "fr" -> """
+            🌐 LANGUE DE RÉPONSE OBLIGATOIRE : FRANÇAIS
+            - L'application est configurée en FRANÇAIS.
+            - Vous DEVEZ formuler TOUTES vos réponses, explications, raisonnements et messages strictement et naturellement en FRANÇAIS.
+            - Ne répondez pas en espagnol ni dans une autre langue, sauf si l'utilisateur demande explicitement une traduction.
+            """.trimIndent()
+            "pt" -> """
+            🌐 IDIOMA DE RESPOSTA OBRIGATÓRIO: PORTUGUÊS
+            - O aplicativo está configurado em PORTUGUÊS.
+            - Você DEVE formular TODAS as suas respostas, explicações, raciocínios e mensagens estritamente e naturalmente em PORTUGUÊS.
+            - Não responda em espanhol nem em outro idioma a menos que o usuário solicite explicitamente uma tradução.
+            """.trimIndent()
+            "de" -> """
+            🌐 PFLICHTSPRACHE FÜR ANTWORTEN: DEUTSCH
+            - Die Anwendung ist auf DEUTSCH eingestellt.
+            - Du MUSST ALLE deine Antworten, Erklärungen, Berechnungen und Nachrichten ausnahmslos und natürlich auf DEUTSCH verfassen.
+            - Antworte nicht auf Spanisch oder in einer anderen Sprache, es sei denn, der Benutzer bittet ausdrücklich um eine Übersetzung.
+            """.trimIndent()
+            "it" -> """
+            🌐 LINGUA OBBLIGATORIA PER LE RISPOSTE: ITALIANO
+            - L'applicazione è configurata in ITALIANO.
+            - DEVI formulare TUTTE le tue risposte, spiegazioni, calcoli e messaggi rigorosamente e naturalmente in ITALIANO.
+            - Non rispondere in spagnolo né in un'altra lingua a meno che l'utente non lo richieda esplicitamente.
+            """.trimIndent()
+            else -> """
+            🌐 IDIOMA DE RESPUESTA OBLIGATORIO: ESPAÑOL
+            - La aplicación está configurada en ESPAÑOL.
+            - Responde siempre en español con naturalidad, claridad y precisión, a menos que el usuario solicite explícitamente otro idioma.
+            """.trimIndent()
+        }
+
+        val baseContent = if (basePersona.isNotBlank()) "$basePersona\n$documentRule" else documentRule
+        return "$languagePromptDirective\n\n$baseContent"
     }
 
     init {
@@ -702,6 +745,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun setVoiceGender(gender: String) {
         _voiceGender.value = gender
         prefs.edit().putString("voice_gender", gender).apply()
+    }
+
+    fun setAppLanguage(language: String) {
+        _appLanguage.value = language
+        prefs.edit().putString("app_language", language).apply()
     }
 
     fun toggleFavorite(messageId: Long, isFavorite: Boolean) {

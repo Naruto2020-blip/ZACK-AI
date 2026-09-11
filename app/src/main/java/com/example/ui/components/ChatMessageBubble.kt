@@ -12,6 +12,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import com.example.util.LocalAppStrings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -797,6 +798,7 @@ private fun MessageDeleteDropdown(
     onDelete: () -> Unit,
     messageId: Long
 ) {
+    val strings = LocalAppStrings.current
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
@@ -820,12 +822,12 @@ private fun MessageDeleteDropdown(
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Eliminar",
+                        contentDescription = strings.delete,
                         tint = RoseRed,
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "Eliminar",
+                        text = strings.delete,
                         color = RoseRed,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp
