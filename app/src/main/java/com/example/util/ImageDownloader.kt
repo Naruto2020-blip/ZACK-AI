@@ -24,10 +24,12 @@ object ImageDownloader {
             val request = ImageRequest.Builder(context)
                 .data(imageUrl)
                 .allowHardware(false)
+                .transformations(WatermarkRemovalTransformation())
                 .build()
             val result = loader.execute(request)
             val drawable = result.drawable ?: return@withContext false
-            val bitmap = (drawable as? BitmapDrawable)?.bitmap ?: return@withContext false
+            val rawBitmap = (drawable as? BitmapDrawable)?.bitmap ?: return@withContext false
+            val bitmap = WatermarkRemovalTransformation.cleanBitmap(rawBitmap)
 
             val filename = "ZACK_AI_${System.currentTimeMillis()}.png"
 

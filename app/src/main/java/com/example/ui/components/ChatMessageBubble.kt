@@ -334,6 +334,7 @@ fun ChatMessageBubble(
                                                 model = ImageRequest.Builder(context)
                                                     .data(imgUrl)
                                                     .crossfade(true)
+                                                    .transformations(com.example.util.WatermarkRemovalTransformation())
                                                     .build(),
                                                 contentDescription = "Imagen generada",
                                                 contentScale = ContentScale.FillWidth,

@@ -37,6 +37,8 @@ import com.example.util.DocumentCleaner
 import com.example.util.DocumentSignatureDetector
 import com.example.util.RealTimeGroundingService
 import com.example.util.ShoppingCategorizer
+import com.example.util.ImagePromptBuilder
+import com.example.util.ImageParser
 import kotlinx.coroutines.flow.combine
 
 data class ChatUiState(
@@ -234,12 +236,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         - Anticipa necesidades: si se acerca una fecha importante o se agota algo que use seguido, avisa con tiempo.
         - No seas insistente: si el usuario no pide recordatorio o ignora una sugerencia, reduce la frecuencia y no repitas la pregunta.
 
-        🖼️ REGLA ESTRICTA PARA SOLICITUDES DE IMÁGENES O DIBUJOS:
-        - Cuando el usuario solicite crear, dibujar, generar, ilustrar, pintar o mostrar una imagen o foto (ejemplo: "dibuja un perro", "genera una imagen de...", "haz una foto de...", "crea una imagen de..."):
-          1. Genera la imagen colocando en la PRIMERA LÍNEA la URL de Pollinations en sintaxis Markdown de imagen:
-             ![Descripción](https://image.pollinations.ai/prompt/{prompt_en_ingles_descriptivo_separado_por_guiones_o_codificado}?width=1024&height=1024&nologo=true&seed={numero_aleatorio})
-          2. En el párrafo siguiente, añade una descripción breve, atractiva y profesional en el idioma configurado.
-          3. NUNCA respondas diciendo que no puedes generar imágenes ni coloques enlaces web o URLs de texto sueltas.
+        🖼️ REGLA ESTRICTA PARA GENERACIÓN DE IMÁGENES O DIBUJOS:
+        - Cuando el usuario solicite crear, dibujar, generar, ilustrar, pintar o mostrar una imagen o foto (ej: "dibuja un...", "genera una imagen de...", "haz una foto de...", "crea una imagen de...", "quiero ver un..."):
+          1. FIDELIDAD VISUAL ABSOLUTA: Traduce fielmente TODOS los detalles solicitados (sujetos, acciones, vestimenta, colores, fondo, entorno, iluminación y estilo artístico) al INGLÉS descriptivo con alta riqueza visual para que la imagen sea 100% idéntica a lo pedido.
+          2. NUNCA coloques espacios en la URL; separa cada palabra del prompt con %20. NUNCA uses llaves {} en el enlace final.
+          3. CERO MARCAS DE AGUA Y CERO PUBLICIDAD: La URL DEBE incluir siempre los parámetros anti-marcas:
+             `width=1024&height=1024&nologo=true&nofeed=true&negative_prompt=watermark%2Ctext%2Clogo%2Csignature%2Cusername%2Cad%2Cadvertising%2Cwords%2Cletters%2Ctrademark%2Ccopyright`
+          4. PRIMERA LÍNEA FORMATO MARKDOWN ESTRICTO:
+             ![Descripción](https://image.pollinations.ai/prompt/{PROMPT_EN_INGLES_ENCODED_CON_%20}?width=1024&height=1024&nologo=true&nofeed=true&negative_prompt=watermark%2Ctext%2Clogo%2Csignature%2Cusername%2Cad%2Cadvertising%2Cwords%2Cletters%2Ctrademark%2Ccopyright&seed={NUMERO_ALEATORIO})
+          5. Párrafo siguiente: añade una breve y elegante descripción en el idioma configurado explicando la obra.
+          6. NUNCA digas que no puedes generar imágenes ni coloques enlaces web o texto plano suelto.
         """.trimIndent()
         val langCode = _appLanguage.value
         val languagePromptDirective = when (langCode) {
@@ -533,8 +539,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     effectivePrompt
                 }
 
-                // 🌐 Búsqueda y verificación de actualidad en tiempo real desde la web
-                val liveWebContext = RealTimeGroundingService.fetchRealTimeContext(effectivePrompt)
+                // 🖼️ Detección de solicitud de imagen
+                val isImageQuery = ImagePromptBuilder.isImageRequest(effectivePrompt)
+
+                // 🌐 Búsqueda y verificación de actualidad en tiempo real desde la web (omitida en dibujos/imágenes)
+                val liveWebContext = if (isImageQuery) null else RealTimeGroundingService.fetchRealTimeContext(effectivePrompt)
                 val finalPromptWithGrounding = if (!liveWebContext.isNullOrBlank()) {
                     """
                     $liveWebContext
@@ -579,18 +588,29 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     result.content
                 }
 
-                // 🖼️ Si el usuario pidió una imagen y la respuesta no incluye URL de imagen, generar enlace directo de imagen
-                val isImageQuery = isImageRequest(effectivePrompt)
-                val finalContent = if (!result.isError && isImageQuery && 
-                    !cleanContent.contains("image.pollinations.ai", ignoreCase = true) && 
-                    !cleanContent.contains(".jpg", ignoreCase = true) && 
-                    !cleanContent.contains(".png", ignoreCase = true)
-                ) {
-                    val promptForImage = cleanPromptForImage(effectivePrompt)
-                    val encoded = java.net.URLEncoder.encode(promptForImage, "UTF-8")
-                    val seed = (System.currentTimeMillis() % 100000).toInt()
-                    val imageUrl = "https://image.pollinations.ai/prompt/$encoded?width=1024&height=1024&nologo=true&seed=$seed"
-                    "![$promptForImage]($imageUrl)\n\n$cleanContent"
+                // 🖼️ Procesamiento de generación de imágenes de máxima fidelidad y sin marcas de agua
+                val finalContent = if (isImageQuery && !result.isError) {
+                    if (!cleanContent.contains("image.pollinations.ai", ignoreCase = true) && 
+                        !cleanContent.contains(".jpg", ignoreCase = true) && 
+                        !cleanContent.contains(".png", ignoreCase = true)
+                    ) {
+                        // El modelo no incluyó la imagen o solo dio texto: construimos la imagen 100% fiel al pedido original
+                        val cleanDesc = ImagePromptBuilder.cleanPromptText(effectivePrompt)
+                        val imageUrl = ImagePromptBuilder.buildCleanPollinationsUrl(effectivePrompt)
+                        "![$cleanDesc]($imageUrl)\n\n$cleanContent"
+                    } else if (cleanContent.contains("image.pollinations.ai", ignoreCase = true)) {
+                        // El modelo incluyó una URL: la sanitizamos para garantizar cero marcas, cero espacios y parámetros de calidad
+                        val parsed = ImageParser.parse(cleanContent, effectivePrompt)
+                        if (parsed.imageUrls.isNotEmpty()) {
+                            val sanitizedUrl = parsed.imageUrls.first()
+                            val cleanDesc = ImagePromptBuilder.cleanPromptText(effectivePrompt)
+                            "![$cleanDesc]($sanitizedUrl)\n\n${parsed.cleanText}"
+                        } else {
+                            cleanContent
+                        }
+                    } else {
+                        cleanContent
+                    }
                 } else {
                     cleanContent
                 }
@@ -961,22 +981,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun isImageRequest(prompt: String): Boolean {
-        val p = prompt.lowercase().trim()
-        val patterns = listOf(
-            "genera una imagen", "generar imagen", "generame una imagen", "genérame una imagen",
-            "crea una imagen", "crear una imagen", "crear imagen", "créame una imagen", "creame una imagen",
-            "dibuja", "dibújame", "dibujame", "haz una imagen", "hazme una imagen",
-            "haz un dibujo", "hazme un dibujo", "muéstrame una imagen", "muestrame una imagen",
-            "quiero una imagen", "foto de", "imagen de", "ilustra", "ilustración de",
-            "ilustracion de", "draw", "generate an image", "create an image"
-        )
-        return patterns.any { p.contains(it) }
+        return ImagePromptBuilder.isImageRequest(prompt)
     }
 
     private fun cleanPromptForImage(prompt: String): String {
-        return prompt
-            .replace(Regex("(?i)^(?:genera|generar|generame|genérame|crea|crear|creame|créame|dibuja|dibújame|dibujame|haz|hazme|muéstrame|muestrame|quiero)\\s+(?:una\\s+|un\\s+)?(?:imagen|foto|dibujo|ilustración|ilustracion|cuadro)?\\s*(?:de|sobre)?\\s*"), "")
-            .trim()
-            .ifBlank { prompt }
+        return ImagePromptBuilder.cleanPromptText(prompt)
     }
 }
