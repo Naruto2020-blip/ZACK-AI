@@ -10,8 +10,14 @@ object ImagePromptBuilder {
         "crea una imagen", "crear una imagen", "crear imagen", "créame una imagen", "creame una imagen",
         "dibuja", "dibújame", "dibujame", "haz una imagen", "hazme una imagen",
         "haz un dibujo", "hazme un dibujo", "muéstrame una imagen", "muestrame una imagen",
-        "quiero una imagen", "quiero ver", "foto de", "imagen de", "ilustra", "ilustración de",
-        "ilustracion de", "pinta", "píntame", "pintame", "pintura de", "retrato de",
+        "quiero una imagen", "quiero ver", "foto de", "imagen de", "foto del", "imagen del",
+        "busca la imagen", "buscar la imagen", "busca una imagen", "buscar una imagen", "busca imagen",
+        "pásame una imagen", "pasame una imagen", "pásame una foto", "pasame una foto",
+        "mándame una imagen", "mandame una imagen", "mándame una foto", "mandame una foto",
+        "envíame una imagen", "enviame una imagen", "envíame una foto", "enviame una foto",
+        "escudo de", "bandera de",
+        "ilustra", "ilustración de", "ilustracion de", "pinta", "píntame", "pintame",
+        "pintura de", "retrato de",
         "draw", "generate an image", "create an image", "make a picture", "picture of",
         "photo of", "illustration of", "paint a picture"
     )

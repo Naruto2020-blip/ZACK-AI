@@ -24,12 +24,16 @@ object ImageDownloader {
             val request = ImageRequest.Builder(context)
                 .data(imageUrl)
                 .allowHardware(false)
-                .transformations(WatermarkRemovalTransformation())
+                .transformations(WatermarkRemovalTransformation(imageUrl = imageUrl))
                 .build()
             val result = loader.execute(request)
             val drawable = result.drawable ?: return@withContext false
             val rawBitmap = (drawable as? BitmapDrawable)?.bitmap ?: return@withContext false
-            val bitmap = WatermarkRemovalTransformation.cleanBitmap(rawBitmap)
+            val bitmap = if (imageUrl.contains("pollinations.ai", ignoreCase = true)) {
+                WatermarkRemovalTransformation.cleanBitmap(rawBitmap)
+            } else {
+                rawBitmap
+            }
 
             val filename = "ZACK_AI_${System.currentTimeMillis()}.png"
 

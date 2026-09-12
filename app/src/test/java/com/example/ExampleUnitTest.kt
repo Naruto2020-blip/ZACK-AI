@@ -5,12 +5,17 @@ import com.example.util.RealTimeGroundingService
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Example local unit test, which will execute on the development machine (host).
  *
  * See [testing documentation](http://d.android.com/tools/testing).
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
 class ExampleUnitTest {
   @Test
   fun addition_isCorrect() {
@@ -83,6 +88,38 @@ class ExampleUnitTest {
     assertTrue("Real-time context should contain Costa Rica or Laura Fernández", 
       context!!.contains("Costa Rica", ignoreCase = true) || context.contains("Laura Fernández", ignoreCase = true))
     assertTrue("Should include year 2026", context.contains("2026"))
+  }
+
+  @Test
+  fun testWebImageSearchQueryExtraction() {
+    val userPrompt = "Vea me mandas las imágenes que no quiero osea busca la imagen en internet del escudo de costa rica y verás. Quiero que cualquier  imagen que yo pida me la mande bien ya que está mal"
+    val extracted = com.example.util.WebImageSearchService.extractSearchQuery(userPrompt)
+    assertTrue("Should extract 'escudo de costa rica', but got: $extracted", 
+        extracted.contains("escudo de costa rica", ignoreCase = true))
+
+    val simplePrompt = "pásame una imagen del escudo de Costa Rica"
+    val extractedSimple = com.example.util.WebImageSearchService.extractSearchQuery(simplePrompt)
+    assertTrue("Should extract 'escudo de Costa Rica', but got: $extractedSimple",
+        extractedSimple.equals("escudo de Costa Rica", ignoreCase = true))
+  }
+
+  @Test
+  fun testWebImageSearchFindsEscudoDeCostaRica() = runBlocking {
+    val result = com.example.util.WebImageSearchService.searchRealImage("escudo de Costa Rica")
+    assertNotNull("Real web image should be found for Escudo de Costa Rica", result)
+    assertTrue("Title should contain Escudo de Costa Rica", result!!.title.contains("Costa Rica", ignoreCase = true))
+    assertTrue("URL should be a valid web image URL", result.imageUrl.startsWith("https://"))
+    assertTrue("URL should contain wikimedia or wikipedia", 
+        result.imageUrl.contains("wikimedia.org") || result.imageUrl.contains("wikipedia.org"))
+  }
+
+  @Test
+  fun testImageParserHandlesRealWebImages() {
+    val markdown = "![Escudo de Costa Rica](https://thumb.wikimedia.org/wikipedia/commons/thumb/8/84/Coat_of_arms_of_Costa_Rica.svg/1280px-Coat_of_arms_of_Costa_Rica.svg.png)\n\nAquí tienes el escudo oficial."
+    val parsed = com.example.util.ImageParser.parse(markdown)
+    assertEquals(1, parsed.imageUrls.size)
+    assertEquals("https://thumb.wikimedia.org/wikipedia/commons/thumb/8/84/Coat_of_arms_of_Costa_Rica.svg/1280px-Coat_of_arms_of_Costa_Rica.svg.png", parsed.imageUrls[0])
+    assertTrue("Clean text should preserve description", parsed.cleanText.contains("Aquí tienes el escudo oficial"))
   }
 }
 

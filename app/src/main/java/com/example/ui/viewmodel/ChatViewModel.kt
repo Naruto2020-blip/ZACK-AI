@@ -38,6 +38,7 @@ import com.example.util.DocumentSignatureDetector
 import com.example.util.RealTimeGroundingService
 import com.example.util.ShoppingCategorizer
 import com.example.util.ImagePromptBuilder
+import com.example.util.WebImageSearchService
 import com.example.util.ImageParser
 import kotlinx.coroutines.flow.combine
 
@@ -236,16 +237,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         - Anticipa necesidades: si se acerca una fecha importante o se agota algo que use seguido, avisa con tiempo.
         - No seas insistente: si el usuario no pide recordatorio o ignora una sugerencia, reduce la frecuencia y no repitas la pregunta.
 
-        🖼️ REGLA ESTRICTA PARA GENERACIÓN DE IMÁGENES O DIBUJOS:
-        - Cuando el usuario solicite crear, dibujar, generar, ilustrar, pintar o mostrar una imagen o foto (ej: "dibuja un...", "genera una imagen de...", "haz una foto de...", "crea una imagen de...", "quiero ver un..."):
-          1. FIDELIDAD VISUAL ABSOLUTA: Traduce fielmente TODOS los detalles solicitados (sujetos, acciones, vestimenta, colores, fondo, entorno, iluminación y estilo artístico) al INGLÉS descriptivo con alta riqueza visual para que la imagen sea 100% idéntica a lo pedido.
+        🖼️ REGLA ESTRICTA PARA IMÁGENES (BÚSQUEDA REAL EN LA WEB vs GENERACIÓN):
+        - SI EL USUARIO PIDE UNA IMAGEN DE ALGO REAL (ej: "busca la imagen en internet del escudo de Costa Rica", "pásame una foto de Messi", "imagen de la bandera de Colombia", "foto de la torre Eiffel", escudos patrios, monumentos, ciudades, mapas, banderas, personajes):
+          1. FIDELIDAD REAL ABSOLUTA: Usa la imagen REAL provista en el contexto web verificado (Wikipedia / Wikimedia). JAMÁS inventes un dibujo falso ni alucines emblemas o símbolos patrios oficiales.
+          2. PRIMERA LÍNEA FORMATO MARKDOWN ESTRICTO:
+             ![Nombre del elemento](URL_REAL_DE_INTERNET)
+          3. Párrafo siguiente: añade una explicación detallada, precisa e históricamente fidedigna sobre el elemento mostrado.
+        - SI EL USUARIO PIDE DIBUJAR, CREAR O GENERAR ARTE/FANTASÍA (ej: "dibuja un perro astronauta en Marte", "crea una ilustración de estilo cyberpunk", "haz un dibujo de..."):
+          1. Traduce fielmente TODOS los detalles solicitados al INGLÉS descriptivo con alta riqueza visual.
           2. NUNCA coloques espacios en la URL; separa cada palabra del prompt con %20. NUNCA uses llaves {} en el enlace final.
           3. CERO MARCAS DE AGUA Y CERO PUBLICIDAD: La URL DEBE incluir siempre los parámetros anti-marcas:
              `width=1024&height=1024&nologo=true&nofeed=true&negative_prompt=watermark%2Ctext%2Clogo%2Csignature%2Cusername%2Cad%2Cadvertising%2Cwords%2Cletters%2Ctrademark%2Ccopyright`
           4. PRIMERA LÍNEA FORMATO MARKDOWN ESTRICTO:
              ![Descripción](https://image.pollinations.ai/prompt/{PROMPT_EN_INGLES_ENCODED_CON_%20}?width=1024&height=1024&nologo=true&nofeed=true&negative_prompt=watermark%2Ctext%2Clogo%2Csignature%2Cusername%2Cad%2Cadvertising%2Cwords%2Cletters%2Ctrademark%2Ccopyright&seed={NUMERO_ALEATORIO})
           5. Párrafo siguiente: añade una breve y elegante descripción en el idioma configurado explicando la obra.
-          6. NUNCA digas que no puedes generar imágenes ni coloques enlaces web o texto plano suelto.
+        - NUNCA digas que no puedes entregar imágenes ni coloques enlaces rotos o texto plano suelto.
         """.trimIndent()
         val langCode = _appLanguage.value
         val languagePromptDirective = when (langCode) {
@@ -539,11 +545,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     effectivePrompt
                 }
 
-                // 🖼️ Detección de solicitud de imagen
-                val isImageQuery = ImagePromptBuilder.isImageRequest(effectivePrompt)
+                // 🖼️ Detección de solicitud de imagen (búsqueda real en la web vs generación artística)
+                val isImageQuery = ImagePromptBuilder.isImageRequest(effectivePrompt) ||
+                        WebImageSearchService.isWebImageSearchCandidate(effectivePrompt)
 
-                // 🌐 Búsqueda y verificación de actualidad en tiempo real desde la web (omitida en dibujos/imágenes)
-                val liveWebContext = if (isImageQuery) null else RealTimeGroundingService.fetchRealTimeContext(effectivePrompt)
+                // 🔍 Búsqueda prioritaria de imágenes reales en internet (Wikipedia, Wikimedia Commons)
+                val realWebImage = if (isImageQuery) {
+                    WebImageSearchService.searchRealImage(effectivePrompt)
+                } else null
+
+                // 🌐 Búsqueda y verificación de actualidad en tiempo real desde la web
+                val liveWebContext = if (realWebImage != null) {
+                    """
+                    🌐 IMAGEN REAL ENCONTRADA EN INTERNET (${realWebImage.sourceName}):
+                    Título oficial: ${realWebImage.title}
+                    URL directa de la imagen: ${realWebImage.imageUrl}
+
+                    INSTRUCCIÓN OBLIGATORIA:
+                    El usuario ha solicitado ver o buscar esta imagen real.
+                    1. Coloca en la PRIMERA LÍNEA la imagen oficial usando formato markdown exacto:
+                    ![${realWebImage.title}](${realWebImage.imageUrl})
+                    2. En el párrafo siguiente, explica con total fidelidad, precisión histórica y riqueza de detalles el contenido y elementos del sujeto mostrado (${realWebImage.title}).
+                    """.trimIndent()
+                } else if (!isImageQuery) {
+                    RealTimeGroundingService.fetchRealTimeContext(effectivePrompt)
+                } else null
+
                 val finalPromptWithGrounding = if (!liveWebContext.isNullOrBlank()) {
                     """
                     $liveWebContext
@@ -588,8 +615,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     result.content
                 }
 
-                // 🖼️ Procesamiento de generación de imágenes de máxima fidelidad y sin marcas de agua
-                val finalContent = if (isImageQuery && !result.isError) {
+                // 🖼️ Procesamiento de imágenes: prioridad absoluta a imágenes reales de internet, o generación limpia sin marcas
+                val finalContent = if (realWebImage != null && !result.isError) {
+                    val parsed = ImageParser.parse(cleanContent, effectivePrompt)
+                    val bodyText = parsed.cleanText.ifBlank {
+                        "Aquí tienes la imagen oficial y verificada de **${realWebImage.title}** obtenida de internet (${realWebImage.sourceName})."
+                    }
+                    "![${realWebImage.title}](${realWebImage.imageUrl})\n\n$bodyText"
+                } else if (isImageQuery && !result.isError) {
                     if (!cleanContent.contains("image.pollinations.ai", ignoreCase = true) && 
                         !cleanContent.contains(".jpg", ignoreCase = true) && 
                         !cleanContent.contains(".png", ignoreCase = true)
