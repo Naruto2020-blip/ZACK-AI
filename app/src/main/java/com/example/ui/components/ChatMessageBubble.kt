@@ -47,6 +47,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.util.ImageParser
 import com.example.util.ImageDownloader
+import com.example.util.CoilUtils
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -319,6 +320,7 @@ fun ChatMessageBubble(
                                         .padding(bottom = if (displayContent.isNotBlank()) 10.dp else 4.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    val imageLoader = remember(context) { CoilUtils.getImageLoader(context) }
                                     imageUrls.forEach { imgUrl ->
                                         Box(
                                             modifier = Modifier
@@ -329,14 +331,22 @@ fun ChatMessageBubble(
                                         ) {
                                             var imageLoading by remember { mutableStateOf(true) }
                                             var imageError by remember { mutableStateOf(false) }
+                                            var reloadKey by remember { mutableStateOf(0) }
 
-                                            AsyncImage(
-                                                model = ImageRequest.Builder(context)
+                                            val imageRequest = remember(imgUrl, reloadKey) {
+                                                ImageRequest.Builder(context)
                                                     .data(imgUrl)
+                                                    .setHeader("User-Agent", CoilUtils.USER_AGENT)
+                                                    .setHeader("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
                                                     .crossfade(true)
                                                     .transformations(com.example.util.WatermarkRemovalTransformation(imageUrl = imgUrl))
-                                                    .build(),
-                                                contentDescription = "Imagen generada",
+                                                    .build()
+                                            }
+
+                                            AsyncImage(
+                                                model = imageRequest,
+                                                imageLoader = imageLoader,
+                                                contentDescription = "Imagen",
                                                 contentScale = ContentScale.FillWidth,
                                                 onLoading = {
                                                     imageLoading = true
@@ -386,11 +396,33 @@ fun ChatMessageBubble(
                                                         .height(160.dp),
                                                     contentAlignment = Alignment.Center
                                                 ) {
-                                                    Text(
-                                                        text = "No se pudo cargar la vista previa",
-                                                        color = RoseRed,
-                                                        fontSize = 12.sp
-                                                    )
+                                                    Column(
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.Center
+                                                    ) {
+                                                        Text(
+                                                            text = "No se pudo cargar la vista previa",
+                                                            color = RoseRed,
+                                                            fontSize = 12.sp
+                                                        )
+                                                        Spacer(modifier = Modifier.height(6.dp))
+                                                        Surface(
+                                                            color = Color.White.copy(alpha = 0.1f),
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            modifier = Modifier.clickable {
+                                                                imageLoading = true
+                                                                imageError = false
+                                                                reloadKey++
+                                                            }
+                                                        ) {
+                                                            Text(
+                                                                text = "Reintentar",
+                                                                color = ElectricCyan,
+                                                                fontSize = 11.sp,
+                                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                                            )
+                                                        }
+                                                    }
                                                 }
                                             }
 

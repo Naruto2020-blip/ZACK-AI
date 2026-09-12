@@ -23,12 +23,14 @@ import com.example.ui.viewmodel.ChatViewModel
 import com.example.util.AppStrings
 import com.example.util.LocalAppLanguage
 import com.example.util.LocalAppStrings
+import com.example.util.CoilUtils
 
 class MainActivity : ComponentActivity() {
     private val chatViewModel: ChatViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CoilUtils.initialize(this)
         enableEdgeToEdge()
         setContent {
             val themeMode by chatViewModel.themeMode.collectAsState()

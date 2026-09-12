@@ -20,9 +20,11 @@ object ImageDownloader {
 
     suspend fun saveImageToDevice(context: Context, imageUrl: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val loader = Coil.imageLoader(context)
+            val loader = CoilUtils.getImageLoader(context)
             val request = ImageRequest.Builder(context)
                 .data(imageUrl)
+                .setHeader("User-Agent", CoilUtils.USER_AGENT)
+                .setHeader("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
                 .allowHardware(false)
                 .transformations(WatermarkRemovalTransformation(imageUrl = imageUrl))
                 .build()

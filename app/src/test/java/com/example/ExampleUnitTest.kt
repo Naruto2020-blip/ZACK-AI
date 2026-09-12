@@ -114,6 +114,15 @@ class ExampleUnitTest {
   }
 
   @Test
+  fun testWebImageSearchFindsEscudoDeCostaRicaWithMissingDe() = runBlocking {
+    val result = com.example.util.WebImageSearchService.searchRealImage("imagen escudo Costa Rica")
+    assertNotNull("Real web image should be found for 'imagen escudo Costa Rica'", result)
+    assertTrue("Title should contain Escudo or Costa Rica", result!!.title.contains("Costa Rica", ignoreCase = true))
+    assertFalse("Should NOT be the 1825 old gold coin", result.title.contains("1825") || result.title.contains("Gold", ignoreCase = true))
+    assertTrue("Score should be 500 for direct match", result.score >= 150)
+  }
+
+  @Test
   fun testImageParserHandlesRealWebImages() {
     val markdown = "![Escudo de Costa Rica](https://thumb.wikimedia.org/wikipedia/commons/thumb/8/84/Coat_of_arms_of_Costa_Rica.svg/1280px-Coat_of_arms_of_Costa_Rica.svg.png)\n\nAquí tienes el escudo oficial."
     val parsed = com.example.util.ImageParser.parse(markdown)
