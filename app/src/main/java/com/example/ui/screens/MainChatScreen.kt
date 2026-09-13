@@ -1031,6 +1031,12 @@ fun EmptyChatState(
     val currentLang = LocalAppLanguage.current
     val suggestions = remember(currentPersona, currentLang) {
         when {
+            currentPersona.contains("Encuesta", ignoreCase = true) || currentPersona.contains("Survey", ignoreCase = true) -> listOf(
+                "📸 Te adjunto la foto de la pregunta y opciones para calificar",
+                "👤 ¿Cuál es el perfil demográfico estándar más recomendado?",
+                "🚩 ¿Cómo identificar preguntas trampa en estudios de mercado?",
+                "📝 Ayúdame a redactar una respuesta abierta creíble y natural"
+            )
             currentPersona.contains("Profesor", ignoreCase = true) || currentPersona.contains("Teacher", ignoreCase = true) -> when (currentLang) {
                 "en" -> listOf(
                     "📝 Create a World History quiz, high school level",

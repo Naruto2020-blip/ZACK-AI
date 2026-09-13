@@ -121,6 +121,14 @@ val AI_MODES_LIST = listOf(
         description = "Redacta currículums, cartas de solicitud, renuncias, prepara para entrevistas y organiza documentos laborales. Se enfoca en lo práctico para conseguir trabajo.",
         emoji = "📄",
         accentColor = Color(0xFF8B5CF6)
+    ),
+    AiModeItem(
+        key = "📋 Ayudante de Encuestas Pagadas",
+        title = "📋 AYUDANTE DE ENCUESTAS PAGADAS",
+        subtitle = "Filtros, Calificación y Respuestas Estratégicas",
+        description = "Recomienda la opción óptima para pasar los filtros de encuestas remuneradas, detecta preguntas trampa y asegura respuestas coherentes con el perfil deseado.",
+        emoji = "📋",
+        accentColor = Color(0xFF10B981)
     )
 )
 

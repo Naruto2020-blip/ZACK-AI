@@ -123,6 +123,14 @@ class ExampleUnitTest {
   }
 
   @Test
+  fun testEncuestasPagadasModeExists() {
+    val found = com.example.ui.components.AI_MODES_LIST.any { 
+      it.key.contains("Encuestas", ignoreCase = true) 
+    }
+    assertTrue("AI_MODES_LIST should contain 'Ayudante de Encuestas Pagadas'", found)
+  }
+
+  @Test
   fun testImageParserHandlesRealWebImages() {
     val markdown = "![Escudo de Costa Rica](https://thumb.wikimedia.org/wikipedia/commons/thumb/8/84/Coat_of_arms_of_Costa_Rica.svg/1280px-Coat_of_arms_of_Costa_Rica.svg.png)\n\nAquí tienes el escudo oficial."
     val parsed = com.example.util.ImageParser.parse(markdown)
