@@ -301,6 +301,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        GeminiClient.initialize(application)
         startDailyResetTimer()
         observeQuotaRecords()
         initDefaultSession()

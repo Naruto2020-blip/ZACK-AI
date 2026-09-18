@@ -74,6 +74,10 @@ object GeminiClient {
             .create(GeminiApiService::class.java)
     }
 
+    fun initialize(context: android.content.Context) {
+        getStoredApiKey(context.applicationContext)
+    }
+
     fun saveCustomApiKey(context: android.content.Context, key: String) {
         val trimmed = key.trim()
         customApiKeyCache = trimmed
