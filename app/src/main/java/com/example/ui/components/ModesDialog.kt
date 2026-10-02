@@ -129,6 +129,14 @@ val AI_MODES_LIST = listOf(
         description = "Recomienda la opción óptima para pasar los filtros de encuestas remuneradas, detecta preguntas trampa y asegura respuestas coherentes con el perfil deseado.",
         emoji = "📋",
         accentColor = Color(0xFF10B981)
+    ),
+    AiModeItem(
+        key = "❤️ Sexólogo",
+        title = "❤️ SEXÓLOGO",
+        subtitle = "Salud Sexual, Intimidad, Pareja y Bienestar",
+        description = "Orientación profesional sobre salud sexual, bienestar íntimo, comunicación en pareja, dudas sin tabúes ni prejuicios, educación afectivo-sexual y fomento de relaciones sanas.",
+        emoji = "❤️",
+        accentColor = Color(0xFFF43F5E)
     )
 )
 

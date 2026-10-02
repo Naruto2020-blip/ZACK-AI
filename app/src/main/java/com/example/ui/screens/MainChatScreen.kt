@@ -1031,6 +1031,12 @@ fun EmptyChatState(
     val currentLang = LocalAppLanguage.current
     val suggestions = remember(currentPersona, currentLang) {
         when {
+            currentPersona.contains("Sexólog", ignoreCase = true) || currentPersona.contains("Sexolog", ignoreCase = true) -> listOf(
+                "💬 ¿Cómo mejorar la comunicación y la intimidad con mi pareja?",
+                "❤️ Mitos comunes sobre el deseo y la vida sexual",
+                "🧠 Consejos para salir de la rutina y reconectar íntimamente",
+                "🌿 Salud sexual preventiva y bienestar: resolver dudas sin tabúes"
+            )
             currentPersona.contains("Encuesta", ignoreCase = true) || currentPersona.contains("Survey", ignoreCase = true) -> listOf(
                 "📸 Te adjunto la foto de la pregunta y opciones para calificar",
                 "👤 ¿Cuál es el perfil demográfico estándar más recomendado?",
