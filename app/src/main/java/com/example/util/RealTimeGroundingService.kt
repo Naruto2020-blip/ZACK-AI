@@ -33,17 +33,17 @@ object RealTimeGroundingService {
      */
     fun shouldSearchWeb(query: String): Boolean {
         val trimmed = query.trim().lowercase(Locale.ROOT)
-        if (trimmed.length < 3) return false
+        if (trimmed.length < 4) return false
 
-        // Saludos o agradecimientos netamente conversacionales
-        val simpleGreetings = listOf(
-            "hola", "buenos días", "buenas tardes", "buenas noches",
-            "qué tal", "que tal", "cómo estás", "como estas",
-            "gracias", "muchas gracias", "adiós", "adios", "chao", "chau", "ok", "vale"
+        // Palabras clave que justifican búsqueda de noticias o hechos en tiempo real
+        val realTimeKeywords = listOf(
+            "noticia", "noticias", "última hora", "actualidad", "suceso", "hoy",
+            "presidente", "presidenta", "gobernante", "mandatario", "ministro",
+            "alcalde", "elecciones", "gobierno actual", "quién manda", "quién gobierna",
+            "busca en internet", "busca en la web", "buscar en internet", "buscar en la web",
+            "precio del dólar", "precio del dolar", "dolar", "dólar", "tipo de cambio", "clima", "partido de hoy", "en vivo"
         )
-        if (simpleGreetings.contains(trimmed)) return false
-
-        return true
+        return realTimeKeywords.any { trimmed.contains(it) }
     }
 
     /**
@@ -52,7 +52,7 @@ object RealTimeGroundingService {
     suspend fun fetchRealTimeContext(query: String): String? = withContext(Dispatchers.IO) {
         if (!shouldSearchWeb(query)) return@withContext null
 
-        withTimeoutOrNull(3000L) {
+        withTimeoutOrNull(1800L) {
             try {
                 val cleanedQuery = cleanQueryForSearch(query)
                 val encoded = URLEncoder.encode(cleanedQuery, "UTF-8")

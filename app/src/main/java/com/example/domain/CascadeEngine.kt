@@ -28,7 +28,7 @@ class CascadeEngine(
     private val repository: ChatRepository
 ) {
     private val tag = "CascadeEngine"
-    private val maxGlobalTimeoutMs = 40_000L
+    private val maxGlobalTimeoutMs = 25_000L
 
     suspend fun executeCascade(
         history: List<ChatMessageEntity>,
@@ -196,7 +196,7 @@ class CascadeEngine(
             for (endpoint in modelEndpoints) {
                 try {
                     Log.d(tag, "Attempting request with model endpoint: $endpoint")
-                    val initialResponse = withTimeoutOrNull(18_000L) {
+                    val initialResponse = withTimeoutOrNull(9_000L) {
                         apiService.generateContent(
                             model = endpoint,
                             apiKeyQuery = apiKey,
@@ -209,28 +209,8 @@ class CascadeEngine(
                         continue
                     }
 
-                    var finalResponse: Response<GenerateContentResponseDto> = initialResponse
+                    val finalResponse: Response<GenerateContentResponseDto> = initialResponse
                     httpCode = finalResponse.code()
-
-                    // Quick retry on 503 (temporary high demand spike / service unavailable)
-                    if (httpCode == 503) {
-                        for (retryCount in 1..2) {
-                            Log.w(tag, "Model $endpoint returned 503 (Saturación temporal), reintentando ($retryCount/2)...")
-                            kotlinx.coroutines.delay(retryCount * 500L)
-                            val retryResp = withTimeoutOrNull(12_000L) {
-                                apiService.generateContent(
-                                    model = endpoint,
-                                    apiKeyQuery = apiKey,
-                                    request = request
-                                )
-                            }
-                            if (retryResp != null) {
-                                finalResponse = retryResp
-                                httpCode = retryResp.code()
-                                if (retryResp.isSuccessful) break
-                            }
-                        }
-                    }
 
                     if (finalResponse.isSuccessful) {
                         val body = finalResponse.body()
@@ -300,8 +280,8 @@ class CascadeEngine(
                             else -> "Error HTTP $httpCode"
                         }
                         
-                        // If quota is exhausted (429), switch immediately to next model
-                        if (httpCode == 429) {
+                        // If 429 (cuota), 503 (saturación temporal) o 404 (no disponible), conmutar de inmediato al siguiente modelo
+                        if (httpCode == 429 || httpCode == 503 || httpCode == 404) {
                             break
                         }
                     }

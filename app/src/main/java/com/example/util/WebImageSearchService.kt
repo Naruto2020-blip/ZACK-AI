@@ -115,13 +115,20 @@ object WebImageSearchService {
     fun isWebImageSearchCandidate(prompt: String): Boolean {
         val p = prompt.lowercase(Locale.ROOT).trim()
 
+        val wantsImage = p.contains("imagen") || p.contains("foto") || p.contains("escudo") ||
+                p.contains("bandera") || p.contains("mapa") || p.contains("fotografía") ||
+                p.contains("fotografia") || (p.contains("ver ") && !p.contains("a ver")) ||
+                p.contains("muéstrame") || p.contains("muestrame") || p.contains("pásame") ||
+                p.contains("pasame") || p.contains("mándame") || p.contains("mandame")
+
+        if (!wantsImage) return false
+
         // Indicadores claros de búsqueda o imágenes de elementos reales
         val searchKeywords = listOf(
             "internet", "web", "escudo", "bandera", "mapa", "himno",
-            "foto de", "imagen de", "pasame", "pásame", "busca", "buscar",
-            "muéstrame", "muestrame", "mandame", "mándame", "enseñame", "monumento",
-            "ciudad de", "país", "pais", "presidente", "cantante", "futbolista",
-            "jugador", "actor", "actriz", "persona", "estadio", "edificio", "volcán", "volcan"
+            "foto de", "imagen de", "monumento", "ciudad", "país", "pais",
+            "presidente", "cantante", "futbolista", "jugador", "actor",
+            "actriz", "persona", "estadio", "edificio", "volcán", "volcan"
         )
 
         val containsRealSubject = searchKeywords.any { p.contains(it) }

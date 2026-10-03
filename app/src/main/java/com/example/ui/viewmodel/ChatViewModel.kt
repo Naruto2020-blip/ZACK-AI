@@ -48,7 +48,7 @@ data class ChatUiState(
     val messages: List<ChatMessageEntity> = emptyList(),
     val isGenerating: Boolean = false,
     val isProcessingFile: Boolean = false,
-    val selectedModel: GeminiModelSpec = GeminiModelSpec.GEMINI_FLASH_LATEST,
+    val selectedModel: GeminiModelSpec = GeminiModelSpec.GEMINI_3_8_FLASH,
     val isAutoCascadeEnabled: Boolean = true,
     val activeCascadeHop: CascadeHop? = null,
     val modelRuntimeStatuses: List<ModelRuntimeStatus> = emptyList(),
@@ -678,10 +678,17 @@ $formalLetterRule
                 val history = repository.getMessagesForSessionSync(sessionId)
                 val systemInstruction = getEffectiveSystemInstruction()
 
+                val isSurveyMode = _uiState.value.systemPersona.contains("Encuesta", ignoreCase = true)
+                val modelToUse = if (isSurveyMode) {
+                    GeminiModelSpec.GEMINI_3_5_FLASH_LITE
+                } else {
+                    _uiState.value.selectedModel
+                }
+
                 val result = cascadeEngine.executeCascade(
                     history = history,
                     newPrompt = finalPromptWithGrounding,
-                    primaryModel = _uiState.value.selectedModel,
+                    primaryModel = modelToUse,
                     autoCascadeEnabled = _uiState.value.isAutoCascadeEnabled,
                     systemInstruction = systemInstruction,
                     temperature = _uiState.value.temperature,
