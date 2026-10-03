@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoFixHigh
@@ -55,6 +56,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,9 +74,11 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.ChatSessionEntity
 import com.example.ui.theme.*
 import com.example.util.LocalAppStrings
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun ChatDrawerContent(
@@ -98,6 +102,22 @@ fun ChatDrawerContent(
 ) {
     val strings = LocalAppStrings.current
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
+    val timeFormat12h = remember {
+        SimpleDateFormat("h:mm a", Locale.getDefault()).apply {
+            timeZone = TimeZone.getDefault()
+        }
+    }
+    var currentDeviceTime by remember {
+        mutableStateOf(timeFormat12h.format(Date()))
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentDeviceTime = timeFormat12h.format(Date())
+            delay(1000L)
+        }
+    }
+
     var sessionToDelete by remember { mutableStateOf<ChatSessionEntity?>(null) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
     var showModesDialog by remember { mutableStateOf(false) }
@@ -207,41 +227,76 @@ fun ChatDrawerContent(
             .background(ObsidianBackground)
             .padding(16.dp)
     ) {
-        // App Branding Header
+        // App Branding Header with 12-Hour Device Clock
         Row(
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
             ) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    tint = if (isAppDark()) DarkBackground else Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(ElectricCyan, RadiantViolet))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = if (isAppDark()) DarkBackground else Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "ZACK AI",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimaryDark
+                    )
+                    Text(
+                        text = "Asistente Inteligente",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CyanAccent,
+                        fontSize = 11.sp
+                    )
+                }
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = "ZACK AI",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimaryDark
-                )
-                Text(
-                    text = "Asistente Inteligente",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = CyanAccent,
-                    fontSize = 11.sp
-                )
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // 🕒 Hora del dispositivo en formato 12 horas (AM/PM)
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = ObsidianCard,
+                border = BorderStroke(1.dp, ObsidianCardBorder),
+                modifier = Modifier.testTag("drawer_device_clock_badge")
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = "Hora del dispositivo",
+                        tint = ElectricCyan,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = currentDeviceTime,
+                        color = TextPrimaryDark,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 
